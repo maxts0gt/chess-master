@@ -49,6 +49,22 @@ struct PuzzleResult {
     time_taken: f32,
 }
 
+#[derive(Debug, Deserialize)]
+struct PuzzleSolutionRequest {
+    puzzle_id: u32,
+    moves: Vec<String>, // The moves the user made
+}
+
+#[derive(Debug, Serialize)]
+struct PuzzleSolutionResponse {
+    correct: bool,
+    rating_change: i32,
+    explanation: String,
+    time_taken: f32,
+    solution_moves: Vec<String>, // The correct solution
+    user_moves: Vec<String>,     // What the user tried
+}
+
 #[derive(Debug, Serialize)]
 struct DeathmatchResponse {
     session_id: String,
@@ -77,6 +93,28 @@ struct UserProgress {
     weak_areas: Vec<String>,
 }
 
+#[derive(Debug, Serialize)]
+struct UserProgressResponse {
+    puzzles_solved: u32,
+    current_rating: u32,
+    accuracy: f32,
+    best_streak: u32,
+    current_streak: u32,
+    weakest_themes: Vec<String>,
+    strongest_themes: Vec<String>,
+    total_time_spent: u32, // in seconds
+    puzzles_by_difficulty: HashMap<String, u32>,
+    recent_performance: Vec<DailyPerformance>,
+}
+
+#[derive(Debug, Serialize)]
+struct DailyPerformance {
+    date: String,
+    puzzles_solved: u32,
+    accuracy: f32,
+    avg_time: f32,
+}
+
 // Global puzzle database (in production, this would be in a proper database)
 lazy_static::lazy_static! {
     static ref PUZZLE_DB: PuzzleDatabase = PuzzleDatabase::new();
@@ -87,10 +125,12 @@ lazy_static::lazy_static! {
 pub fn create_router() -> Router<AppState> {
     Router::new()
         .route("/puzzles", get(get_tactical_puzzles))
+        .route("/puzzles/solve", post(submit_puzzle_solution))
         .route("/deathmatch/start", post(start_deathmatch))
         .route("/deathmatch/submit", post(submit_deathmatch_result))
         .route("/stats", get(get_training_stats))
         .route("/recommendations", get(get_puzzle_recommendations))
+        .route("/progress", get(get_user_progress))
 }
 
 /// Get tactical puzzles based on difficulty and theme
@@ -132,6 +172,70 @@ async fn get_tactical_puzzles(
     };
 
     Ok(Json(puzzles))
+}
+
+/// Submit a puzzle solution and check if it's correct
+async fn submit_puzzle_solution(
+    State(_state): State<AppState>,
+    Json(request): Json<PuzzleSolutionRequest>,
+) -> Result<Json<PuzzleSolutionResponse>, StatusCode> {
+    // Get the puzzle from database
+    let puzzles = PUZZLE_DB.get_deathmatch_puzzles(&Difficulty::Beginner, 50);
+    let puzzle = puzzles.iter()
+        .find(|p| p.id == request.puzzle_id)
+        .ok_or(StatusCode::NOT_FOUND)?;
+    
+    // Check if the moves match the solution
+    let correct = request.moves == puzzle.solution;
+    
+    // Calculate rating change based on puzzle difficulty and correctness
+    let rating_change = if correct {
+        match puzzle.difficulty {
+            Difficulty::Beginner => 5,
+            Difficulty::Intermediate => 10,
+            Difficulty::Advanced => 15,
+            Difficulty::Expert => 20,
+        }
+    } else {
+        -3 // Small penalty for wrong answer
+    };
+    
+    // Generate explanation
+    let explanation = if correct {
+        format!(
+            "Excellent! You found the {:?} pattern. {}",
+            puzzle.theme,
+            puzzle.description
+        )
+    } else {
+        format!(
+            "Not quite right. This puzzle demonstrates a {:?} pattern. The correct solution is: {}. {}",
+            puzzle.theme,
+            puzzle.solution.join(" "),
+            puzzle.description
+        )
+    };
+    
+    // Mock time taken (in real app, this would be tracked client-side)
+    let time_taken = 8.5;
+    
+    let response = PuzzleSolutionResponse {
+        correct,
+        rating_change,
+        explanation,
+        time_taken,
+        solution_moves: puzzle.solution.clone(),
+        user_moves: request.moves,
+    };
+    
+    tracing::info!(
+        "Puzzle {} solution submitted: {} (rating change: {})",
+        request.puzzle_id,
+        if correct { "correct" } else { "incorrect" },
+        rating_change
+    );
+    
+    Ok(Json(response))
 }
 
 /// Start a deathmatch training session (CS:GO style)
@@ -300,6 +404,61 @@ async fn get_puzzle_recommendations(
     let recommendations = PUZZLE_DB.get_recommended_puzzles(user_rating, weak_themes, 10);
     
     Ok(Json(recommendations))
+}
+
+/// Get user progress for training
+async fn get_user_progress(
+    State(_state): State<AppState>,
+) -> Result<Json<UserProgressResponse>, StatusCode> {
+    // In production, this would fetch from database based on user ID from auth token
+    // For now, returning mock data that shows realistic progress
+    
+    let progress = UserProgressResponse {
+        puzzles_solved: 247,
+        current_rating: 1350,
+        accuracy: 78.5,
+        best_streak: 15,
+        current_streak: 3,
+        weakest_themes: vec![
+            "Endgame".to_string(),
+            "Positional".to_string(),
+            "Sacrifice".to_string(),
+        ],
+        strongest_themes: vec![
+            "Fork".to_string(),
+            "Pin".to_string(),
+            "Back Rank Mate".to_string(),
+        ],
+        total_time_spent: 3600, // 1 hour in seconds
+        puzzles_by_difficulty: HashMap::from([
+            ("Beginner".to_string(), 150),
+            ("Intermediate".to_string(), 80),
+            ("Advanced".to_string(), 17),
+            ("Expert".to_string(), 0),
+        ]),
+        recent_performance: vec![
+            DailyPerformance {
+                date: "2025-08-01".to_string(),
+                puzzles_solved: 15,
+                accuracy: 80.0,
+                avg_time: 4.5,
+            },
+            DailyPerformance {
+                date: "2025-07-31".to_string(),
+                puzzles_solved: 22,
+                accuracy: 77.3,
+                avg_time: 5.2,
+            },
+            DailyPerformance {
+                date: "2025-07-30".to_string(),
+                puzzles_solved: 18,
+                accuracy: 83.3,
+                avg_time: 4.1,
+            },
+        ],
+    };
+    
+    Ok(Json(progress))
 }
 
 // Helper functions
