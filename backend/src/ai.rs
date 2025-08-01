@@ -1,5 +1,5 @@
 // AI Coaching Module - MCP Protocol & Multi-Agent System
-use serde::{Serialize, Deserialize};
+use serde::Serialize;
 use anyhow::Result;
 use reqwest::Client;
 use crate::config::{AppConfig, AITier};
@@ -107,17 +107,63 @@ impl AICoachingSystem {
         }
     }
 
-    async fn basic_analysis(&self, _fen: &str) -> Result<AICoachingResponse> {
+    async fn basic_analysis(&self, fen: &str) -> Result<AICoachingResponse> {
         // Algorithm-based coaching for free users
+        // Parse the FEN to understand the position
+        let parts: Vec<&str> = fen.split(' ').collect();
+        let to_move = parts.get(1).unwrap_or(&"w");
+        let castling = parts.get(2).unwrap_or(&"-");
+        
+        // Analyze position characteristics
+        let is_opening = fen.contains("rnbqkbnr") || fen.matches('/').count() >= 6;
+        let is_endgame = fen.chars().filter(|c| c.is_alphabetic() && c.is_uppercase()).count() <= 8;
+        
+        let (analysis, suggestions) = if is_opening {
+            (
+                "Opening phase detected. Focus on rapid development and center control. Remember the opening principles: develop knights before bishops, control the center, and ensure king safety.".to_string(),
+                vec![
+                    "Develop your knights to active squares (Nf3, Nc3)".to_string(),
+                    "Control the center with pawns (e4, d4)".to_string(),
+                    "Prepare to castle kingside for safety".to_string(),
+                    "Avoid moving the same piece twice".to_string(),
+                    "Don't bring your queen out too early".to_string(),
+                ]
+            )
+        } else if is_endgame {
+            (
+                "Endgame position. Activate your king and focus on pawn promotion. In endgames, the king becomes a strong piece.".to_string(),
+                vec![
+                    "Activate your king - it's a strong piece in the endgame".to_string(),
+                    "Create passed pawns and push them".to_string(),
+                    "Centralize your king".to_string(),
+                    "Use the principle of opposition".to_string(),
+                    "Remember: Rook behind passed pawns".to_string(),
+                ]
+            )
+        } else {
+            (
+                format!("Middlegame position. {} to move. Look for tactical opportunities and improve piece coordination.", 
+                    if to_move == &"w" { "White" } else { "Black" }
+                ),
+                vec![
+                    "Look for tactical patterns: pins, forks, skewers".to_string(),
+                    "Improve your worst-placed piece".to_string(),
+                    "Create weaknesses in opponent's position".to_string(),
+                    "Consider pawn breaks to open the position".to_string(),
+                    if castling.contains(if to_move == &"w" { 'K' } else { 'k' }) {
+                        "You can still castle - consider king safety".to_string()
+                    } else {
+                        "Connect your rooks on the back rank".to_string()
+                    },
+                ]
+            )
+        };
+        
         Ok(AICoachingResponse {
-            analysis: "This position offers interesting possibilities. Focus on piece development and center control.".to_string(),
-            suggestions: vec![
-                "Develop knights before bishops".to_string(),
-                "Control the center with pawns".to_string(),
-                "Castle early for king safety".to_string(),
-            ],
-            personality: "Basic Coach".to_string(),
-            confidence: 0.7,
+            analysis,
+            suggestions,
+            personality: "Algorithm Coach".to_string(),
+            confidence: 0.75,
         })
     }
 

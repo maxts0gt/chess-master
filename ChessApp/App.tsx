@@ -11,9 +11,14 @@ import TrainingScreen from './src/screens/TrainingScreen';
 import GameScreen from './src/screens/GameScreen';
 import PuzzleScreen from './src/screens/PuzzleScreen';
 import SplashScreen from './src/screens/SplashScreen';
+import TestConnectionScreen from './src/screens/TestConnectionScreen';
+import LobbyBrowserScreen from './src/screens/LobbyBrowserScreen';
 
 // Import context
 import {AuthProvider} from './src/context/AuthContext';
+
+// Import components
+import ErrorBoundary from './src/components/ErrorBoundary';
 
 const Stack = createStackNavigator();
 
@@ -25,10 +30,11 @@ function App(): JSX.Element {
   }
 
   return (
-    <AuthProvider>
-      <NavigationContainer>
-        <StatusBar backgroundColor="#1e293b" barStyle="light-content" />
-        <Stack.Navigator
+    <ErrorBoundary>
+      <AuthProvider>
+        <NavigationContainer>
+          <StatusBar backgroundColor="#1e293b" barStyle="light-content" />
+          <Stack.Navigator
           initialRouteName="Home"
           screenOptions={{
             headerStyle: {
@@ -69,9 +75,20 @@ function App(): JSX.Element {
             component={PuzzleScreen}
             options={{title: 'Puzzle Deathmatch'}}
           />
+          <Stack.Screen 
+            name="TestConnection" 
+            component={TestConnectionScreen}
+            options={{title: 'Test Backend Connection'}}
+          />
+          <Stack.Screen 
+            name="LobbyBrowser" 
+            component={LobbyBrowserScreen}
+            options={{title: 'Online Games'}}
+          />
         </Stack.Navigator>
       </NavigationContainer>
     </AuthProvider>
+  </ErrorBoundary>
   );
 }
 

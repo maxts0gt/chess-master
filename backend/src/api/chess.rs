@@ -7,7 +7,7 @@ use axum::{
 };
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
-use crate::{AppState, chess_engine::ChessEngine, models::*};
+use crate::{AppState, chess_engine::ChessEngine};
 
 pub fn create_router() -> Router<AppState> {
     Router::new()

@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Chess Self-Play Demo</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #1a1a1a;
+            color: #fff;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .player-section {
+            display: inline-block;
+            width: 45%;
+            vertical-align: top;
+            margin: 0 2%;
+            background-color: #2a2a2a;
+            padding: 20px;
+            border-radius: 8px;
+        }
+        .board {
+            width: 400px;
+            height: 400px;
+            border: 2px solid #fff;
+            display: grid;
+            grid-template-columns: repeat(8, 1fr);
+            grid-template-rows: repeat(8, 1fr);
+            margin: 20px 0;
+        }
+        .square {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 36px;
+        }
+        .light {
+            background-color: #f0d9b5;
+            color: #000;
+        }
+        .dark {
+            background-color: #b58863;
+            color: #000;
+        }
+        .highlight {
+            background-color: #7fc97f !important;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        button:disabled {
+            background-color: #666;
+            cursor: not-allowed;
+        }
+        .log {
+            background-color: #000;
+            padding: 10px;
+            height: 200px;
+            overflow-y: scroll;
+            border: 1px solid #444;
+            font-family: monospace;
+            font-size: 12px;
+            margin-top: 10px;
+        }
+        .status {
+            padding: 10px;
+            background-color: #333;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        h2 {
+            margin-top: 0;
+        }
+        .moves-list {
+            background-color: #333;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+            min-height: 50px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🤖 Chess Self-Play Demo</h1>
+        <div style="text-align: center; margin: 20px;">
+            <button onclick="startDemo()" id="startBtn">Start Self-Play Demo</button>
+            <button onclick="stopDemo()" id="stopBtn" disabled>Stop Demo</button>
+        </div>
+        
+        <div class="player-section">
+            <h2>Player 1 (White)</h2>
+            <div class="status" id="status1">Not connected</div>
+            <div class="board" id="board1"></div>
+            <div class="moves-list" id="moves1">Moves: </div>
+            <div class="log" id="log1"></div>
+        </div>
+        
+        <div class="player-section">
+            <h2>Player 2 (Black)</h2>
+            <div class="status" id="status2">Not connected</div>
+            <div class="board" id="board2"></div>
+            <div class="moves-list" id="moves2">Moves: </div>
+            <div class="log" id="log2"></div>
+        </div>
+    </div>
+
+    <script>
+        // Chess piece Unicode symbols
+        const pieces = {
+            'K': '♔', 'Q': '♕', 'R': '♖', 'B': '♗', 'N': '♘', 'P': '♙',
+            'k': '♚', 'q': '♛', 'r': '♜', 'b': '♝', 'n': '♞', 'p': '♟'
+        };
+
+        class ChessPlayer {
+            constructor(id, name) {
+                this.id = id;
+                this.name = name;
+                this.ws = null;
+                this.playerId = null;
+                this.lobbyId = null;
+                this.gameId = null;
+                this.isWhite = null;
+                this.position = null;
+                this.moves = [];
+                this.myTurn = false;
+            }
+
+            log(message) {
+                const logDiv = document.getElementById(`log${this.id}`);
+                const time = new Date().toLocaleTimeString();
+                logDiv.innerHTML += `[${time}] ${message}\n`;
+                logDiv.scrollTop = logDiv.scrollHeight;
+            }
+
+            updateStatus(status) {
+                document.getElementById(`status${this.id}`).textContent = status;
+            }
+
+            updateBoard(fen) {
+                const boardDiv = document.getElementById(`board${this.id}`);
+                boardDiv.innerHTML = '';
+                
+                // Parse FEN to get board position
+                const fenParts = fen.split(' ');
+                const boardStr = fenParts[0];
+                const ranks = boardStr.split('/').reverse(); // Reverse for correct display
+                
+                for (let rank = 7; rank >= 0; rank--) {
+                    const rankStr = ranks[rank];
+                    let file = 0;
+                    
+                    for (let char of rankStr) {
+                        if (char >= '1' && char <= '8') {
+                            // Empty squares
+                            for (let i = 0; i < parseInt(char); i++) {
+                                const square = document.createElement('div');
+                                square.className = `square ${((rank + file) % 2 === 0) ? 'light' : 'dark'}`;
+                                square.dataset.square = String.fromCharCode(97 + file) + (rank + 1);
+                                boardDiv.appendChild(square);
+                                file++;
+                            }
+                        } else {
+                            // Piece
+                            const square = document.createElement('div');
+                            square.className = `square ${((rank + file) % 2 === 0) ? 'light' : 'dark'}`;
+                            square.dataset.square = String.fromCharCode(97 + file) + (rank + 1);
+                            square.textContent = pieces[char] || char;
+                            boardDiv.appendChild(square);
+                            file++;
+                        }
+                    }
+                }
+            }
+
+            connect() {
+                const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+                const wsUrl = `${protocol}//localhost:8080/ws`;
+                
+                this.ws = new WebSocket(wsUrl);
+
+                this.ws.onopen = () => {
+                    this.log('Connected to server');
+                    this.updateStatus('Connected');
+                    
+                    // Send connect message
+                    this.ws.send(JSON.stringify({
+                        type: 'Connect',
+                        token: `player${this.id}-token`
+                    }));
+                };
+
+                this.ws.onmessage = (event) => {
+                    const data = JSON.parse(event.data);
+                    this.handleMessage(data);
+                };
+
+                this.ws.onerror = (error) => {
+                    this.log(`Error: ${error}`);
+                    this.updateStatus('Error');
+                };
+
+                this.ws.onclose = () => {
+                    this.log('Disconnected from server');
+                    this.updateStatus('Disconnected');
+                };
+            }
+
+            handleMessage(data) {
+                this.log(`Received: ${data.type}`);
+                
+                if (data.type === 'Connected') {
+                    this.playerId = data.player_id;
+                    this.log(`My ID: ${this.playerId}`);
+                    
+                    if (this.id === 1) {
+                        // Player 1 creates lobby
+                        setTimeout(() => this.createLobby(), 1000);
+                    }
+                } else if (data.type === 'LobbyMessage') {
+                    this.handleLobbyMessage(data.LobbyMessage);
+                } else if (data.type === 'GameMessage') {
+                    this.handleGameMessage(data.GameMessage);
+                }
+            }
+
+            handleLobbyMessage(msg) {
+                if (msg.type === 'LobbyCreated') {
+                    this.lobbyId = msg.lobby_id;
+                    this.log(`Created lobby: ${this.lobbyId}`);
+                    this.updateStatus(`In lobby: ${this.lobbyId}`);
+                    
+                    // Share lobby ID with player 2
+                    if (this.id === 1) {
+                        window.lobbyIdToJoin = this.lobbyId;
+                    }
+                } else if (msg.type === 'LobbyUpdated') {
+                    this.log(`Joined lobby: ${msg.lobby.id}`);
+                    this.updateStatus(`In lobby: ${msg.lobby.id}`);
+                    
+                    if (msg.lobby.players.length === 2 && this.id === 1) {
+                        // Start game when both players are in
+                        setTimeout(() => this.startGame(), 1000);
+                    }
+                } else if (msg.type === 'PlayerJoined') {
+                    this.log(`Player joined: ${msg.player.username}`);
+                }
+            }
+
+            handleGameMessage(msg) {
+                if (msg.type === 'GameStarted') {
+                    this.gameId = msg.game_id;
+                    this.isWhite = msg.white_player.id === this.playerId;
+                    this.myTurn = this.isWhite;
+                    this.position = msg.fen;
+                    
+                    this.log(`Game started! I am ${this.isWhite ? 'White' : 'Black'}`);
+                    this.updateStatus(`Playing as ${this.isWhite ? 'White' : 'Black'}`);
+                    this.updateBoard(msg.fen);
+                    
+                    if (this.myTurn) {
+                        setTimeout(() => this.makeRandomMove(), 2000);
+                    }
+                } else if (msg.type === 'MoveMade') {
+                    this.position = msg.fen;
+                    this.moves.push(msg.san);
+                    
+                    this.log(`Move: ${msg.from} to ${msg.to}`);
+                    this.updateBoard(msg.fen);
+                    document.getElementById(`moves${this.id}`).textContent = `Moves: ${this.moves.join(' ')}`;
+                    
+                    // Highlight the move
+                    const squares = document.querySelectorAll(`#board${this.id} .square`);
+                    squares.forEach(sq => sq.classList.remove('highlight'));
+                    const fromSquare = document.querySelector(`#board${this.id} [data-square="${msg.from}"]`);
+                    const toSquare = document.querySelector(`#board${this.id} [data-square="${msg.to}"]`);
+                    if (fromSquare) fromSquare.classList.add('highlight');
+                    if (toSquare) toSquare.classList.add('highlight');
+                    
+                    // Check if it's now my turn
+                    this.myTurn = msg.player_id !== this.playerId;
+                    if (this.myTurn) {
+                        setTimeout(() => this.makeRandomMove(), 1500);
+                    }
+                } else if (msg.type === 'GameOver') {
+                    this.log(`Game Over! ${msg.reason}`);
+                    if (msg.winner) {
+                        this.updateStatus(msg.winner === this.playerId ? 'You won!' : 'You lost!');
+                    } else {
+                        this.updateStatus('Draw!');
+                    }
+                } else if (msg.type === 'InvalidMove') {
+                    this.log(`Invalid move: ${msg.reason}`);
+                    // Try another move
+                    setTimeout(() => this.makeRandomMove(), 1000);
+                }
+            }
+
+            createLobby() {
+                this.ws.send(JSON.stringify({
+                    type: 'CreateLobby',
+                    config: {
+                        name: 'Self-Play Demo',
+                        mode: 'Custom',
+                        max_players: 2,
+                        time_control: '10+0',
+                        rated: false,
+                        voice_enabled: false
+                    }
+                }));
+            }
+
+            joinLobby(lobbyId) {
+                this.ws.send(JSON.stringify({
+                    type: 'JoinLobby',
+                    lobby_id: lobbyId
+                }));
+            }
+
+            startGame() {
+                this.ws.send(JSON.stringify({
+                    type: 'StartGame'
+                }));
+            }
+
+            makeRandomMove() {
+                if (!this.myTurn) return;
+                
+                // Simple random move selection
+                // In a real implementation, you'd calculate legal moves properly
+                const files = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
+                const ranks = ['1', '2', '3', '4', '5', '6', '7', '8'];
+                
+                // Try some common moves
+                const commonMoves = [
+                    // Opening moves
+                    ['e2', 'e4'], ['d2', 'd4'], ['g1', 'f3'], ['b1', 'c3'],
+                    ['f1', 'c4'], ['c1', 'f4'], ['e1', 'g1'], // Castling
+                    // Black responses
+                    ['e7', 'e5'], ['d7', 'd5'], ['g8', 'f6'], ['b8', 'c6'],
+                    ['f8', 'c5'], ['c8', 'f5'], ['e8', 'g8'], // Castling
+                    // General moves
+                    ['a2', 'a3'], ['h2', 'h3'], ['a7', 'a6'], ['h7', 'h6'],
+                    ['f2', 'f3'], ['c2', 'c3'], ['f7', 'f6'], ['c7', 'c6'],
+                ];
+                
+                // Try random squares
+                for (let i = 0; i < 20; i++) {
+                    const from = files[Math.floor(Math.random() * 8)] + ranks[Math.floor(Math.random() * 8)];
+                    const to = files[Math.floor(Math.random() * 8)] + ranks[Math.floor(Math.random() * 8)];
+                    
+                    if (from !== to) {
+                        this.log(`Trying move: ${from} to ${to}`);
+                        this.ws.send(JSON.stringify({
+                            type: 'MakeMove',
+                            from: from,
+                            to: to
+                        }));
+                        break;
+                    }
+                }
+            }
+
+            disconnect() {
+                if (this.ws) {
+                    this.ws.close();
+                }
+            }
+        }
+
+        let player1 = null;
+        let player2 = null;
+        let demoRunning = false;
+
+        function startDemo() {
+            if (demoRunning) return;
+            
+            demoRunning = true;
+            document.getElementById('startBtn').disabled = true;
+            document.getElementById('stopBtn').disabled = false;
+            
+            // Clear boards
+            document.getElementById('board1').innerHTML = '';
+            document.getElementById('board2').innerHTML = '';
+            
+            // Create players
+            player1 = new ChessPlayer(1, 'Player 1');
+            player2 = new ChessPlayer(2, 'Player 2');
+            
+            // Connect player 1
+            player1.connect();
+            
+            // Connect player 2 after a delay and join the lobby
+            setTimeout(() => {
+                player2.connect();
+                
+                // Wait for player 2 to connect, then join lobby
+                setTimeout(() => {
+                    if (window.lobbyIdToJoin) {
+                        player2.joinLobby(window.lobbyIdToJoin);
+                    }
+                }, 2000);
+            }, 3000);
+        }
+
+        function stopDemo() {
+            demoRunning = false;
+            document.getElementById('startBtn').disabled = false;
+            document.getElementById('stopBtn').disabled = true;
+            
+            if (player1) player1.disconnect();
+            if (player2) player2.disconnect();
+            
+            player1 = null;
+            player2 = null;
+            window.lobbyIdToJoin = null;
+        }
+
+        // Initialize empty boards
+        window.onload = () => {
+            ['board1', 'board2'].forEach(boardId => {
+                const boardDiv = document.getElementById(boardId);
+                for (let rank = 7; rank >= 0; rank--) {
+                    for (let file = 0; file < 8; file++) {
+                        const square = document.createElement('div');
+                        square.className = `square ${((rank + file) % 2 === 0) ? 'light' : 'dark'}`;
+                        boardDiv.appendChild(square);
+                    }
+                }
+            });
+        };
+    </script>
+</body>
+</html>

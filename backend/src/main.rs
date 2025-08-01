@@ -1,15 +1,14 @@
 use axum::{
-    extract::State,
     http::StatusCode,
     response::Json,
-    routing::{get, post},
+    routing::get,
     Router,
 };
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use std::sync::Arc;
 use tokio::net::TcpListener;
 use tower_http::cors::CorsLayer;
-use tracing::{info, warn};
+use tracing::info;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 mod api;
@@ -19,6 +18,7 @@ mod db;
 mod models;
 mod config;
 mod puzzle_database;
+mod websocket;
 
 use config::AppConfig;
 use db::Database;
@@ -27,6 +27,7 @@ use db::Database;
 pub struct AppState {
     pub db: Arc<Database>,
     pub config: Arc<AppConfig>,
+    pub ws_state: Arc<websocket::WsState>,
 }
 
 #[derive(Serialize)]
@@ -47,6 +48,7 @@ async fn health_check() -> Result<Json<HealthResponse>, StatusCode> {
 async fn create_app(state: AppState) -> Router {
     Router::new()
         .route("/health", get(health_check))
+        .route("/ws", get(websocket::websocket_handler))
         .nest("/api/v1", api::create_router())
         .layer(CorsLayer::permissive())
         .with_state(state)
@@ -77,7 +79,11 @@ async fn main() -> anyhow::Result<()> {
     db.run_migrations().await?;
     info!("🔄 Database migrations completed");
 
-    let state = AppState { db, config: config.clone() };
+    // Initialize WebSocket state
+    let ws_state = Arc::new(websocket::WsState::new());
+    info!("🔌 WebSocket system initialized");
+
+    let state = AppState { db, config: config.clone(), ws_state };
 
     // Create the application
     let app = create_app(state).await;
