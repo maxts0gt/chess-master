@@ -8,6 +8,7 @@ ChessApp/ios/build/
 ChessApp/android/build/
 ChessApp/android/.gradle/
 ChessApp/.metro/
+ChessApp/package-lock.json
 
 # Database files
 *.db
