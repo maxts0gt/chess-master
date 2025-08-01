@@ -13,6 +13,7 @@ import PuzzleScreen from './src/screens/PuzzleScreen';
 import SplashScreen from './src/screens/SplashScreen';
 import TestConnectionScreen from './src/screens/TestConnectionScreen';
 import LobbyBrowserScreen from './src/screens/LobbyBrowserScreen';
+import OnboardingScreen from './src/screens/OnboardingScreen';
 
 // Import context
 import {AuthProvider} from './src/context/AuthContext';
@@ -84,6 +85,14 @@ function App(): JSX.Element {
             name="LobbyBrowser" 
             component={LobbyBrowserScreen}
             options={{title: 'Online Games'}}
+          />
+          <Stack.Screen 
+            name="Onboarding" 
+            component={OnboardingScreen}
+            options={{
+              title: 'Get Started',
+              headerShown: false,
+            }}
           />
         </Stack.Navigator>
       </NavigationContainer>
