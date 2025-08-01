@@ -120,6 +120,17 @@ const HomeScreen: React.FC<HomeScreenProps> = ({navigation}) => {
           <Text style={styles.actionTitle}>Play Chess</Text>
           <Text style={styles.actionDescription}>Live games with analysis</Text>
         </TouchableOpacity>
+
+        {/* Test Connection Button - Remove in production */}
+        {__DEV__ && (
+          <TouchableOpacity 
+            style={[styles.actionButton, {backgroundColor: '#991b1b'}]}
+            onPress={() => navigation.navigate('TestConnection')}>
+            <Text style={styles.actionEmoji}>🧪</Text>
+            <Text style={styles.actionTitle}>Test Backend</Text>
+            <Text style={styles.actionDescription}>Debug connection</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       <TouchableOpacity style={styles.logoutButton} onPress={logout}>

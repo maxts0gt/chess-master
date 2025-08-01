@@ -2,8 +2,11 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // API Configuration
+// For Android emulator: use 10.0.2.2
+// For iOS simulator: use localhost
+// For physical device: use your computer's IP address
 export const BACKEND_URL = __DEV__ 
-  ? 'http://localhost:8080/api/v1'  // Development
+  ? 'http://10.0.2.2:8080/api/v1'  // Android emulator
   : 'https://your-domain.com/api/v1';  // Production
 
 // Types
@@ -303,9 +306,12 @@ class ChessAPIClient {
     version: string;
     timestamp: string;
   }> {
-    return this.request('/health', {
-      method: 'GET',
-    });
+    // Health endpoint is at root, not under /api/v1
+    const response = await fetch(`${BACKEND_URL.replace('/api/v1', '')}/health`);
+    if (!response.ok) {
+      throw new Error(`Health check failed: ${response.status}`);
+    }
+    return await response.json();
   }
 }
 

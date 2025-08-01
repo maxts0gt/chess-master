@@ -11,6 +11,7 @@ import TrainingScreen from './src/screens/TrainingScreen';
 import GameScreen from './src/screens/GameScreen';
 import PuzzleScreen from './src/screens/PuzzleScreen';
 import SplashScreen from './src/screens/SplashScreen';
+import TestConnectionScreen from './src/screens/TestConnectionScreen';
 
 // Import context
 import {AuthProvider} from './src/context/AuthContext';
@@ -68,6 +69,11 @@ function App(): JSX.Element {
             name="Puzzle" 
             component={PuzzleScreen}
             options={{title: 'Puzzle Deathmatch'}}
+          />
+          <Stack.Screen 
+            name="TestConnection" 
+            component={TestConnectionScreen}
+            options={{title: 'Test Backend Connection'}}
           />
         </Stack.Navigator>
       </NavigationContainer>
