@@ -62,6 +62,9 @@ pub enum WsMessage {
     
     // Lobby Messages
     LobbyMessage(lobby::LobbyMessage),
+    
+    // Game Messages
+    GameMessage(game::GameMessage),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -161,6 +164,19 @@ async fn websocket_connection(socket: WebSocket, state: AppState) {
                         }
                     }
                 }
+                BroadcastTarget::Game(game_id) => {
+                    // Check if player is in this game
+                    let players = broadcast_state.ws_state.players.read().await;
+                    if let Some(player) = players.get(&player_id) {
+                        if let PlayerStatus::InGame(id) = player.status {
+                            if id == game_id {
+                                if let Ok(text) = serde_json::to_string(&msg.message) {
+                                    let _ = sender.send(Message::Text(text)).await;
+                                }
+                            }
+                        }
+                    }
+                }
                 _ => {}
             }
         }
@@ -216,6 +232,43 @@ async fn handle_message(msg: WsMessage, player_id: Uuid, state: &AppState) {
         
         WsMessage::JoinLobby { lobby_id } => {
             lobby::join_lobby(player_id, lobby_id, state).await;
+        }
+        
+        WsMessage::StartGame => {
+            // Find player's lobby and start game
+            let players = state.ws_state.players.read().await;
+            if let Some(player) = players.get(&player_id) {
+                if let PlayerStatus::InLobby(lobby_id) = player.status {
+                    drop(players);
+                    match game::create_game_from_lobby(lobby_id, state).await {
+                        Ok(game_id) => {
+                            tracing::info!("Game {} started from lobby {}", game_id, lobby_id);
+                        }
+                        Err(e) => {
+                            let _ = state.ws_state.broadcast.send(BroadcastMessage {
+                                target: BroadcastTarget::Player(player_id),
+                                message: WsMessage::Error { message: e },
+                            });
+                        }
+                    }
+                }
+            }
+        }
+        
+        WsMessage::MakeMove { from, to } => {
+            // Find player's game and make move
+            let players = state.ws_state.players.read().await;
+            if let Some(player) = players.get(&player_id) {
+                if let PlayerStatus::InGame(game_id) = player.status {
+                    drop(players);
+                    if let Err(e) = game::make_move(game_id, player_id, from, to, state).await {
+                        let _ = state.ws_state.broadcast.send(BroadcastMessage {
+                            target: BroadcastTarget::Player(player_id),
+                            message: WsMessage::GameMessage(game::GameMessage::InvalidMove { reason: e }),
+                        });
+                    }
+                }
+            }
         }
         
         WsMessage::Ping => {
