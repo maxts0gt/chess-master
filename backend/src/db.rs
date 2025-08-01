@@ -1,6 +1,6 @@
 use sqlx::{sqlite::SqlitePool, Pool, Sqlite, migrate::MigrateDatabase};
 use anyhow::Result;
-use tracing::{info, warn};
+use tracing::info;
 
 pub struct Database {
     pool: Pool<Sqlite>,

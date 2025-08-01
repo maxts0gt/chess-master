@@ -1,5 +1,5 @@
 // AI Coaching Module - MCP Protocol & Multi-Agent System
-use serde::{Serialize, Deserialize};
+use serde::Serialize;
 use anyhow::Result;
 use reqwest::Client;
 use crate::config::{AppConfig, AITier};

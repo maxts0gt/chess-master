@@ -5,7 +5,6 @@ use axum::{
     routing::{post},
     Router,
 };
-use serde_json::json;
 use uuid::Uuid;
 use bcrypt::{hash, verify, DEFAULT_COST};
 use jsonwebtoken::{encode, Header, EncodingKey};
