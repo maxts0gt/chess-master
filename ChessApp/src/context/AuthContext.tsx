@@ -1,16 +1,6 @@
 import React, {createContext, useContext, useState, useEffect} from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-
-interface User {
-  id: string;
-  username: string;
-  email: string;
-  elo_rating: number;
-  subscription_tier: 'free' | 'paid' | 'premium';
-  games_played: number;
-  puzzles_solved: number;
-  win_rate: number;
-}
+import { apiClient, User } from '../services/api';
 
 interface AuthContextType {
   user: User | null;
@@ -19,14 +9,10 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<boolean>;
   register: (username: string, email: string, password: string) => Promise<boolean>;
   logout: () => void;
+  refreshUserData: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
-
-// API Configuration
-const BACKEND_URL = __DEV__ 
-  ? 'http://localhost:8080/api/v1'  // Development
-  : 'https://your-domain.com/api/v1';  // Production
 
 export const AuthProvider: React.FC<{children: React.ReactNode}> = ({children}) => {
   const [user, setUser] = useState<User | null>(null);
@@ -45,6 +31,14 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({children}) 
       if (storedToken && storedUser) {
         setToken(storedToken);
         setUser(JSON.parse(storedUser));
+        
+        // Try to refresh token to ensure it's still valid
+        try {
+          await apiClient.refreshToken();
+        } catch (error) {
+          console.log('Token refresh failed, user needs to login again');
+          await logout();
+        }
       }
     } catch (error) {
       console.error('Error loading stored auth:', error);
@@ -55,27 +49,15 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({children}) 
 
   const login = async (email: string, password: string): Promise<boolean> => {
     try {
-      const response = await fetch(`${BACKEND_URL}/auth/login`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email, password }),
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setToken(data.token);
-        setUser(data.user);
-        
-        await AsyncStorage.setItem('auth_token', data.token);
-        await AsyncStorage.setItem('user_data', JSON.stringify(data.user));
-        
-        return true;
-      } else {
-        console.error('Login failed:', response.statusText);
-        return false;
-      }
+      const response = await apiClient.login(email, password);
+      
+      setToken(response.token);
+      setUser(response.user);
+      
+      await AsyncStorage.setItem('auth_token', response.token);
+      await AsyncStorage.setItem('user_data', JSON.stringify(response.user));
+      
+      return true;
     } catch (error) {
       console.error('Login error:', error);
       return false;
@@ -84,30 +66,43 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({children}) 
 
   const register = async (username: string, email: string, password: string): Promise<boolean> => {
     try {
-      const response = await fetch(`${BACKEND_URL}/auth/register`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ username, email, password }),
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setToken(data.token);
-        setUser(data.user);
-        
-        await AsyncStorage.setItem('auth_token', data.token);
-        await AsyncStorage.setItem('user_data', JSON.stringify(data.user));
-        
-        return true;
-      } else {
-        console.error('Registration failed:', response.statusText);
-        return false;
-      }
+      const response = await apiClient.register(username, email, password);
+      
+      setToken(response.token);
+      setUser(response.user);
+      
+      await AsyncStorage.setItem('auth_token', response.token);
+      await AsyncStorage.setItem('user_data', JSON.stringify(response.user));
+      
+      return true;
     } catch (error) {
       console.error('Registration error:', error);
       return false;
+    }
+  };
+
+  const refreshUserData = async () => {
+    try {
+      // Get updated user stats
+      const [userProgress, userStats] = await Promise.all([
+        apiClient.getUserProgress(),
+        apiClient.getUserStats(),
+      ]);
+      
+      if (user) {
+        const updatedUser: User = {
+          ...user,
+          puzzles_solved: userProgress.puzzles_solved,
+          elo_rating: userProgress.current_rating,
+          games_played: userStats.total_games,
+          win_rate: userStats.win_rate,
+        };
+        
+        setUser(updatedUser);
+        await AsyncStorage.setItem('user_data', JSON.stringify(updatedUser));
+      }
+    } catch (error) {
+      console.error('Error refreshing user data:', error);
     }
   };
 
@@ -129,6 +124,7 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({children}) 
     login,
     register,
     logout,
+    refreshUserData,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
