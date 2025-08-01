@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { useAPI, ChessAnalysis, AICoachingResponse, MoveSuggestions } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import ChessBoard from '../components/ChessBoard';
 
 interface GameScreenProps {
   navigation: any;
@@ -144,14 +145,22 @@ const GameScreen: React.FC<GameScreenProps> = ({navigation}) => {
       </View>
 
       <View style={styles.gameSection}>
-        <View style={styles.boardPlaceholder}>
-          <Text style={styles.boardText}>🏆 CHESS BOARD 🏆</Text>
-          <Text style={styles.boardSubtext}>Interactive chess board coming soon</Text>
+        <ChessBoard 
+          fen={currentFen}
+          onMove={async (move) => {
+            // Update FEN after move
+            const newFen = move.after;
+            setCurrentFen(newFen);
+            // Auto-analyze new position
+            await analyzeCurrentPosition();
+          }}
+          playable={true}
+          showCoordinates={true}
+        />
           
           {gameId && (
             <Text style={styles.gameId}>Game ID: {gameId}</Text>
           )}
-        </View>
 
         <View style={styles.fenSection}>
           <Text style={styles.fenLabel}>Current Position (FEN):</Text>

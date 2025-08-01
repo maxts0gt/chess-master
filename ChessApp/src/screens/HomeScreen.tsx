@@ -99,10 +99,18 @@ const HomeScreen: React.FC<HomeScreenProps> = ({navigation}) => {
       <View style={styles.actionsContainer}>
         <TouchableOpacity 
           style={styles.actionButton}
-          onPress={() => navigation.navigate('Training')}>
+          onPress={() => navigation.navigate('Puzzle')}>
           <Text style={styles.actionEmoji}>⚡</Text>
-          <Text style={styles.actionTitle}>Deathmatch Training</Text>
-          <Text style={styles.actionDescription}>Rapid-fire tactical puzzles</Text>
+          <Text style={styles.actionTitle}>Puzzle Deathmatch</Text>
+          <Text style={styles.actionDescription}>CS:GO-style rapid training</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity 
+          style={styles.actionButton}
+          onPress={() => navigation.navigate('Training')}>
+          <Text style={styles.actionEmoji}>🤖</Text>
+          <Text style={styles.actionTitle}>AI Training</Text>
+          <Text style={styles.actionDescription}>Personal AI coaching</Text>
         </TouchableOpacity>
 
         <TouchableOpacity 
@@ -110,7 +118,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({navigation}) => {
           onPress={() => navigation.navigate('Game')}>
           <Text style={styles.actionEmoji}>♟</Text>
           <Text style={styles.actionTitle}>Play Chess</Text>
-          <Text style={styles.actionDescription}>Live games with AI coaching</Text>
+          <Text style={styles.actionDescription}>Live games with analysis</Text>
         </TouchableOpacity>
       </View>
 
