@@ -121,6 +121,17 @@ const HomeScreen: React.FC<HomeScreenProps> = ({navigation}) => {
           <Text style={styles.actionDescription}>Live games with analysis</Text>
         </TouchableOpacity>
 
+        <TouchableOpacity 
+          style={[styles.actionButton, styles.onlineButton]}
+          onPress={() => navigation.navigate('LobbyBrowser')}>
+          <Text style={styles.actionEmoji}>🌐</Text>
+          <Text style={styles.actionTitle}>Play Online</Text>
+          <Text style={styles.actionDescription}>Real-time multiplayer</Text>
+          <View style={styles.newBadge}>
+            <Text style={styles.newBadgeText}>NEW!</Text>
+          </View>
+        </TouchableOpacity>
+
         {/* Test Connection Button - Remove in production */}
         {__DEV__ && (
           <TouchableOpacity 
@@ -301,6 +312,25 @@ const styles = StyleSheet.create({
   logoutButtonText: {
     color: '#ef4444',
     fontSize: 16,
+  },
+  onlineButton: {
+    borderWidth: 2,
+    borderColor: '#4CAF50',
+    position: 'relative',
+  },
+  newBadge: {
+    position: 'absolute',
+    top: -10,
+    right: -10,
+    backgroundColor: '#e74c3c',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  newBadgeText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: 'bold',
   },
 });
 
