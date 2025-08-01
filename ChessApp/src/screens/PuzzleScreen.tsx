@@ -8,10 +8,13 @@ import {
   Alert,
   ActivityIndicator,
   Animated,
+  Modal,
 } from 'react-native';
 import ChessBoard from '../components/ChessBoard';
+import StreakIndicator from '../components/StreakIndicator';
 import { useAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import * as Haptics from 'expo-haptics';
 
 interface PuzzleScreenProps {
   navigation: any;
@@ -27,6 +30,8 @@ interface Puzzle {
   rating: number;
 }
 
+type GameMode = 'classic' | 'storm' | 'streak';
+
 const PuzzleScreen: React.FC<PuzzleScreenProps> = ({ navigation }) => {
   const [currentPuzzle, setCurrentPuzzle] = useState<Puzzle | null>(null);
   const [score, setScore] = useState(0);
@@ -37,22 +42,64 @@ const PuzzleScreen: React.FC<PuzzleScreenProps> = ({ navigation }) => {
   const [timer, setTimer] = useState(0);
   const [moveIndex, setMoveIndex] = useState(0);
   const [showHint, setShowHint] = useState(false);
+  const [gameMode, setGameMode] = useState<GameMode>('classic');
+  const [stormTimeLeft, setStormTimeLeft] = useState(180); // 3 minutes for storm mode
+  const [isGameActive, setIsGameActive] = useState(false);
+  const [showModeSelection, setShowModeSelection] = useState(true);
+  const [showResults, setShowResults] = useState(false);
+  const [combo, setCombo] = useState(0);
+  const [maxCombo, setMaxCombo] = useState(0);
+  
   const fadeAnim = useState(new Animated.Value(0))[0];
   const shakeAnim = useState(new Animated.Value(0))[0];
+  const comboAnim = useState(new Animated.Value(1))[0];
   
   const api = useAPI();
   const { user } = useAuth();
 
   useEffect(() => {
-    loadNextPuzzle();
-  }, []);
+    if (isGameActive) {
+      const interval = setInterval(() => {
+        if (gameMode === 'storm') {
+          setStormTimeLeft(prev => {
+            if (prev <= 0) {
+              endGame();
+              return 0;
+            }
+            return prev - 1;
+          });
+        } else {
+          setTimer(prev => prev + 1);
+        }
+      }, 1000);
+      return () => clearInterval(interval);
+    }
+  }, [isGameActive, gameMode]);
 
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setTimer(prev => prev + 1);
-    }, 1000);
-    return () => clearInterval(interval);
-  }, []);
+  const selectGameMode = (mode: GameMode) => {
+    setGameMode(mode);
+    setShowModeSelection(false);
+    startGame(mode);
+  };
+
+  const startGame = (mode: GameMode) => {
+    setScore(0);
+    setStreak(0);
+    setCombo(0);
+    setMaxCombo(0);
+    setPuzzlesSolved(0);
+    setTimer(0);
+    setStormTimeLeft(180);
+    setIsGameActive(true);
+    setShowResults(false);
+    loadNextPuzzle();
+  };
+
+  const endGame = () => {
+    setIsGameActive(false);
+    setShowResults(true);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  };
 
   const loadNextPuzzle = async () => {
     try {
@@ -88,13 +135,14 @@ const PuzzleScreen: React.FC<PuzzleScreenProps> = ({ navigation }) => {
   };
 
   const handleMove = async (move: any) => {
-    if (!currentPuzzle) return;
+    if (!currentPuzzle || !isGameActive) return;
     
     const expectedMove = currentPuzzle.solution[moveIndex];
     const playerMove = move.san;
     
     if (playerMove === expectedMove) {
       // Correct move!
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       setMoveIndex(moveIndex + 1);
       
       if (moveIndex + 1 >= currentPuzzle.solution.length) {
@@ -102,7 +150,7 @@ const PuzzleScreen: React.FC<PuzzleScreenProps> = ({ navigation }) => {
         puzzleSolved();
       } else {
         // More moves to go
-        showSuccess('Correct! Keep going...');
+        showQuickFeedback('✓', '#10b981');
       }
     } else {
       // Wrong move
@@ -111,22 +159,57 @@ const PuzzleScreen: React.FC<PuzzleScreenProps> = ({ navigation }) => {
   };
 
   const puzzleSolved = () => {
-    setScore(score + 100 + Math.floor(1000 / timer));
+    const basePoints = gameMode === 'storm' ? 50 : 100;
+    const timeBonus = gameMode === 'storm' ? 0 : Math.floor(1000 / timer);
+    const comboBonus = combo * 10;
+    const totalPoints = basePoints + timeBonus + comboBonus;
+    
+    setScore(score + totalPoints);
     setStreak(streak + 1);
+    setCombo(combo + 1);
     setPuzzlesSolved(puzzlesSolved + 1);
+    
+    if (combo + 1 > maxCombo) {
+      setMaxCombo(combo + 1);
+    }
     
     if (streak + 1 > bestStreak) {
       setBestStreak(streak + 1);
     }
     
-    showSuccess('🎉 Puzzle Solved! +' + (100 + Math.floor(1000 / timer)) + ' points');
+    // Combo animation
+    Animated.sequence([
+      Animated.timing(comboAnim, {
+        toValue: 1.2,
+        duration: 200,
+        useNativeDriver: true,
+      }),
+      Animated.timing(comboAnim, {
+        toValue: 1,
+        duration: 200,
+        useNativeDriver: true,
+      }),
+    ]).start();
+    
+    showQuickFeedback(`+${totalPoints}`, '#3b82f6');
+    
+    if (gameMode === 'storm') {
+      // Add time bonus for fast solving
+      const solveTime = timer - (puzzlesSolved * 10); // Approximate solve time
+      if (solveTime < 5) {
+        setStormTimeLeft(prev => Math.min(prev + 3, 300)); // Max 5 minutes
+        showQuickFeedback('+3s', '#10b981');
+      }
+    }
     
     setTimeout(() => {
       loadNextPuzzle();
-    }, 1500);
+    }, gameMode === 'storm' ? 500 : 1500);
   };
 
   const wrongMove = () => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    
     // Shake animation
     Animated.sequence([
       Animated.timing(shakeAnim, {
@@ -152,19 +235,31 @@ const PuzzleScreen: React.FC<PuzzleScreenProps> = ({ navigation }) => {
     ]).start();
     
     setStreak(0);
-    Alert.alert(
-      'Wrong Move!',
-      'Try again or get a hint',
-      [
-        { text: 'Try Again', style: 'cancel' },
-        { text: 'Show Hint', onPress: () => setShowHint(true) },
-        { text: 'Skip Puzzle', onPress: loadNextPuzzle },
-      ]
-    );
+    setCombo(0);
+    
+    if (gameMode === 'storm') {
+      // In storm mode, skip immediately
+      showQuickFeedback('✗', '#ef4444');
+      setTimeout(loadNextPuzzle, 500);
+    } else if (gameMode === 'streak') {
+      // In streak mode, end the game
+      endGame();
+    } else {
+      // Classic mode - show options
+      Alert.alert(
+        'Wrong Move!',
+        'Try again or get a hint',
+        [
+          { text: 'Try Again', style: 'cancel' },
+          { text: 'Show Hint', onPress: () => setShowHint(true) },
+          { text: 'Skip Puzzle', onPress: loadNextPuzzle },
+        ]
+      );
+    }
   };
 
-  const showSuccess = (message: string) => {
-    Alert.alert('Success!', message, [{ text: 'OK' }]);
+  const showQuickFeedback = (text: string, color: string) => {
+    // TODO: Implement quick visual feedback overlay
   };
 
   const formatTime = (seconds: number) => {
@@ -172,6 +267,90 @@ const PuzzleScreen: React.FC<PuzzleScreenProps> = ({ navigation }) => {
     const secs = seconds % 60;
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
+
+  if (showModeSelection) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.modeSelectionContainer}>
+          <Text style={styles.modeTitle}>Choose Your Training Mode</Text>
+          
+          <TouchableOpacity
+            style={[styles.modeCard, styles.classicMode]}
+            onPress={() => selectGameMode('classic')}
+          >
+            <Text style={styles.modeCardTitle}>🎯 Classic Mode</Text>
+            <Text style={styles.modeCardDescription}>
+              Solve puzzles at your own pace. Perfect for learning.
+            </Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity
+            style={[styles.modeCard, styles.stormMode]}
+            onPress={() => selectGameMode('storm')}
+          >
+            <Text style={styles.modeCardTitle}>⚡ Puzzle Storm</Text>
+            <Text style={styles.modeCardDescription}>
+              3 minutes of rapid-fire puzzles. How many can you solve?
+            </Text>
+            <Text style={styles.modeCardBadge}>NEW!</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity
+            style={[styles.modeCard, styles.streakMode]}
+            onPress={() => selectGameMode('streak')}
+          >
+            <Text style={styles.modeCardTitle}>🔥 Streak Mode</Text>
+            <Text style={styles.modeCardDescription}>
+              How far can you go without a mistake?
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
+
+  if (showResults && !isGameActive) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.resultsContainer}>
+          <Text style={styles.resultsTitle}>
+            {gameMode === 'storm' ? '⚡ Storm Complete!' : '🏆 Game Over!'}
+          </Text>
+          
+          <View style={styles.resultsStats}>
+            <View style={styles.resultStat}>
+              <Text style={styles.resultValue}>{score}</Text>
+              <Text style={styles.resultLabel}>Total Score</Text>
+            </View>
+            
+            <View style={styles.resultStat}>
+              <Text style={styles.resultValue}>{puzzlesSolved}</Text>
+              <Text style={styles.resultLabel}>Puzzles Solved</Text>
+            </View>
+            
+            <View style={styles.resultStat}>
+              <Text style={styles.resultValue}>{maxCombo}x</Text>
+              <Text style={styles.resultLabel}>Best Combo</Text>
+            </View>
+          </View>
+          
+          <TouchableOpacity
+            style={styles.playAgainButton}
+            onPress={() => startGame(gameMode)}
+          >
+            <Text style={styles.playAgainText}>Play Again</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity
+            style={styles.changeModeButton}
+            onPress={() => setShowModeSelection(true)}
+          >
+            <Text style={styles.changeModeText}>Change Mode</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
 
   if (loading || !currentPuzzle) {
     return (
@@ -185,14 +364,29 @@ const PuzzleScreen: React.FC<PuzzleScreenProps> = ({ navigation }) => {
   return (
     <ScrollView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>⚡ Puzzle Deathmatch ⚡</Text>
-        <Text style={styles.subtitle}>CS:GO-style rapid chess improvement</Text>
+        <Text style={styles.title}>
+          {gameMode === 'storm' ? '⚡ Puzzle Storm ⚡' : 
+           gameMode === 'streak' ? '🔥 Streak Mode 🔥' : 
+           '🎯 Classic Training 🎯'}
+        </Text>
+        <Text style={styles.subtitle}>
+          {gameMode === 'storm' ? `Time: ${formatTime(stormTimeLeft)}` : 
+           `Time: ${formatTime(timer)}`}
+        </Text>
       </View>
 
       <View style={styles.statsRow}>
         <View style={styles.statBox}>
           <Text style={styles.statValue}>{score}</Text>
           <Text style={styles.statLabel}>Score</Text>
+        </View>
+        <View style={styles.statBox}>
+          <Animated.View style={{ transform: [{ scale: comboAnim }] }}>
+            <Text style={[styles.statValue, combo > 5 && styles.comboHighlight]}>
+              {combo}x
+            </Text>
+          </Animated.View>
+          <Text style={styles.statLabel}>Combo</Text>
         </View>
         <View style={styles.statBox}>
           <Text style={styles.statValue}>{streak}</Text>
@@ -207,6 +401,8 @@ const PuzzleScreen: React.FC<PuzzleScreenProps> = ({ navigation }) => {
           <Text style={styles.statLabel}>Solved</Text>
         </View>
       </View>
+
+      <StreakIndicator streak={streak} bestStreak={bestStreak} />
 
       <Animated.View 
         style={[
@@ -479,6 +675,119 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#94a3b8',
     textAlign: 'center',
+  },
+  // New styles for mode selection
+  modeSelectionContainer: {
+    padding: 20,
+    alignItems: 'center',
+  },
+  modeTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#f1f5f9',
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  modeCard: {
+    backgroundColor: '#1e293b',
+    padding: 20,
+    borderRadius: 12,
+    marginBottom: 15,
+    width: '100%',
+    alignItems: 'center',
+  },
+  classicMode: {
+    backgroundColor: '#10b981',
+  },
+  stormMode: {
+    backgroundColor: '#3b82f6',
+  },
+  streakMode: {
+    backgroundColor: '#ef4444',
+  },
+  modeCardTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#f1f5f9',
+    marginBottom: 8,
+  },
+  modeCardDescription: {
+    fontSize: 14,
+    color: '#d1d5db',
+    textAlign: 'center',
+    marginBottom: 10,
+  },
+  modeCardBadge: {
+    backgroundColor: '#2563eb',
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    borderRadius: 5,
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: '#f1f5f9',
+  },
+  resultsContainer: {
+    padding: 20,
+    alignItems: 'center',
+  },
+  resultsTitle: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#f1f5f9',
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  resultsStats: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    width: '100%',
+    marginBottom: 20,
+  },
+  resultStat: {
+    alignItems: 'center',
+  },
+  resultValue: {
+    fontSize: 36,
+    fontWeight: 'bold',
+    color: '#3b82f6',
+  },
+  resultLabel: {
+    fontSize: 14,
+    color: '#64748b',
+    marginTop: 4,
+  },
+  playAgainButton: {
+    backgroundColor: '#10b981',
+    paddingVertical: 15,
+    paddingHorizontal: 30,
+    borderRadius: 10,
+    width: '100%',
+    alignItems: 'center',
+    marginBottom: 15,
+  },
+  playAgainText: {
+    color: '#f1f5f9',
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  changeModeButton: {
+    backgroundColor: '#374151',
+    paddingVertical: 15,
+    paddingHorizontal: 30,
+    borderRadius: 10,
+    width: '100%',
+    alignItems: 'center',
+  },
+  changeModeText: {
+    color: '#9ca3af',
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  comboHighlight: {
+    color: '#fbbf24',
+    textShadowColor: '#f59e0b',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 10,
   },
 });
 
