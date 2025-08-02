@@ -16,6 +16,7 @@ pub fn create_router() -> Router<AppState> {
         .route("/games/:id", get(get_game))
         .route("/games/:id/moves", post(make_move))
         .route("/validate-fen", post(validate_fen))
+        .route("/validate-move", post(validate_move))
 }
 
 #[derive(Deserialize)]
@@ -186,4 +187,184 @@ async fn validate_fen(
             message: format!("Invalid FEN: {}", e),
         })),
     }
+}
+
+#[derive(Deserialize)]
+struct ValidateMoveRequest {
+    fen: String,
+    from: String,
+    to: String,
+    promotion: Option<String>,
+}
+
+#[derive(Serialize)]
+struct ValidateMoveResponse {
+    valid: bool,
+    new_fen: Option<String>,
+    is_check: bool,
+    is_checkmate: bool,
+    is_stalemate: bool,
+    is_draw: bool,
+    captured_piece: Option<String>,
+    san_notation: Option<String>,
+    legal_moves: Vec<String>,
+    error: Option<String>,
+}
+
+async fn validate_move(
+    State(_state): State<AppState>,
+    Json(request): Json<ValidateMoveRequest>,
+) -> Result<Json<ValidateMoveResponse>, StatusCode> {
+    use chess::{Board, Square, ChessMove, Piece, MoveGen};
+    use std::str::FromStr;
+    
+    // Parse the FEN
+    let board = match Board::from_str(&request.fen) {
+        Ok(b) => b,
+        Err(e) => {
+            return Ok(Json(ValidateMoveResponse {
+                valid: false,
+                new_fen: None,
+                is_check: false,
+                is_checkmate: false,
+                is_stalemate: false,
+                is_draw: false,
+                captured_piece: None,
+                san_notation: None,
+                legal_moves: vec![],
+                error: Some(format!("Invalid FEN: {}", e)),
+            }));
+        }
+    };
+    
+    // Parse squares
+    let from_square = match Square::from_str(&request.from) {
+        Ok(s) => s,
+        Err(_) => {
+            return Ok(Json(ValidateMoveResponse {
+                valid: false,
+                new_fen: None,
+                is_check: false,
+                is_checkmate: false,
+                is_stalemate: false,
+                is_draw: false,
+                captured_piece: None,
+                san_notation: None,
+                legal_moves: vec![],
+                error: Some(format!("Invalid from square: {}", request.from)),
+            }));
+        }
+    };
+    
+    let to_square = match Square::from_str(&request.to) {
+        Ok(s) => s,
+        Err(_) => {
+            return Ok(Json(ValidateMoveResponse {
+                valid: false,
+                new_fen: None,
+                is_check: false,
+                is_checkmate: false,
+                is_stalemate: false,
+                is_draw: false,
+                captured_piece: None,
+                san_notation: None,
+                legal_moves: vec![],
+                error: Some(format!("Invalid to square: {}", request.to)),
+            }));
+        }
+    };
+    
+    // Check if there's a piece to capture
+    let captured_piece = board.piece_on(to_square).map(|p| format!("{:?}", p));
+    
+    // Create the move
+    let chess_move = if let Some(promo) = &request.promotion {
+        let promo_piece = match promo.as_str() {
+            "q" | "Q" => Some(Piece::Queen),
+            "r" | "R" => Some(Piece::Rook),
+            "b" | "B" => Some(Piece::Bishop),
+            "n" | "N" => Some(Piece::Knight),
+            _ => None,
+        };
+        
+        if let Some(p) = promo_piece {
+            ChessMove::new(from_square, to_square, Some(p))
+        } else {
+            ChessMove::new(from_square, to_square, None)
+        }
+    } else {
+        ChessMove::new(from_square, to_square, None)
+    };
+    
+    // Check if the move is legal
+    let movegen = MoveGen::new_legal(&board);
+    let legal_moves: Vec<ChessMove> = movegen.collect();
+    let is_legal = legal_moves.contains(&chess_move);
+    
+    if !is_legal {
+        // Return all legal moves for the piece on the from square
+        let piece_moves: Vec<String> = legal_moves
+            .iter()
+            .filter(|m| m.get_source() == from_square)
+            .map(|m| format!("{}{}", m.get_source(), m.get_dest()))
+            .collect();
+            
+        return Ok(Json(ValidateMoveResponse {
+            valid: false,
+            new_fen: None,
+            is_check: false,
+            is_checkmate: false,
+            is_stalemate: false,
+            is_draw: false,
+            captured_piece: None,
+            san_notation: None,
+            legal_moves: piece_moves,
+            error: Some("Illegal move".to_string()),
+        }));
+    }
+    
+    // Make the move
+    let new_board = board.make_move_new(chess_move);
+    
+    // Check game status
+    let status = new_board.status();
+    let is_check = new_board.checkers().popcnt() > 0;
+    let is_checkmate = status == chess::BoardStatus::Checkmate;
+    let is_stalemate = status == chess::BoardStatus::Stalemate;
+    let is_draw = is_stalemate || new_board.can_declare_draw();
+    
+    // Get all legal moves for the new position
+    let next_moves = MoveGen::new_legal(&new_board);
+    let legal_move_strings: Vec<String> = next_moves
+        .map(|m| format!("{}{}", m.get_source(), m.get_dest()))
+        .collect();
+    
+    // Generate SAN notation (simplified)
+    let san_notation = Some(format!("{}{}{}", 
+        if let Some(piece) = board.piece_on(from_square) {
+            match piece {
+                Piece::Knight => "N",
+                Piece::Bishop => "B",
+                Piece::Rook => "R",
+                Piece::Queen => "Q",
+                Piece::King => "K",
+                Piece::Pawn => "",
+            }
+        } else { "" },
+        if captured_piece.is_some() { "x" } else { "" },
+        request.to
+    ));
+    
+    Ok(Json(ValidateMoveResponse {
+        valid: true,
+        new_fen: Some(format!("{}", new_board)),
+        is_check,
+        is_checkmate,
+        is_stalemate,
+        is_draw,
+        captured_piece,
+        san_notation,
+        legal_moves: legal_move_strings,
+        error: None,
+    }))
 }

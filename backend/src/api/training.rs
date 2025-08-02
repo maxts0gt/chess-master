@@ -9,6 +9,8 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 use uuid::Uuid;
+use sqlx::SqlitePool;
+use chrono::{DateTime, Utc, NaiveDate};
 
 use crate::{AppState, puzzle_database::{PuzzleDatabase, TacticalPuzzle, Difficulty, Theme}};
 
@@ -176,9 +178,12 @@ async fn get_tactical_puzzles(
 
 /// Submit a puzzle solution and check if it's correct
 async fn submit_puzzle_solution(
-    State(_state): State<AppState>,
+    State(state): State<AppState>,
     Json(request): Json<PuzzleSolutionRequest>,
 ) -> Result<Json<PuzzleSolutionResponse>, StatusCode> {
+    // TODO: Extract user_id from JWT token
+    let user_id = "test-user-001";
+    
     // Get the puzzle from database
     let puzzles = PUZZLE_DB.get_deathmatch_puzzles(&Difficulty::Beginner, 50);
     let puzzle = puzzles.iter()
@@ -200,6 +205,98 @@ async fn submit_puzzle_solution(
         -3 // Small penalty for wrong answer
     };
     
+    // Save puzzle attempt to database
+    let pool = &state.db_pool;
+    let time_taken = 30; // TODO: Get actual time from frontend
+    
+    // Insert puzzle attempt
+    sqlx::query!(
+        r#"
+        INSERT INTO puzzles_solved (user_id, puzzle_id, solved, time_taken_seconds, attempts)
+        VALUES (?, ?, ?, ?, 1)
+        ON CONFLICT(user_id, puzzle_id) DO UPDATE SET
+            solved = CASE WHEN excluded.solved THEN 1 ELSE puzzles_solved.solved END,
+            attempts = puzzles_solved.attempts + 1,
+            time_taken_seconds = excluded.time_taken_seconds
+        "#,
+        user_id,
+        request.puzzle_id as i32,
+        correct,
+        time_taken
+    )
+    .execute(pool)
+    .await
+    .map_err(|e| {
+        tracing::error!("Failed to save puzzle attempt: {}", e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
+    
+    // Update user stats
+    if correct {
+        // Update streak and puzzle count
+        sqlx::query!(
+            r#"
+            INSERT INTO user_stats (user_id, puzzles_solved, puzzles_attempted, current_puzzle_streak, best_puzzle_streak, total_training_time)
+            VALUES (?, 1, 1, 1, 1, ?)
+            ON CONFLICT(user_id) DO UPDATE SET
+                puzzles_solved = user_stats.puzzles_solved + 1,
+                puzzles_attempted = user_stats.puzzles_attempted + 1,
+                current_puzzle_streak = user_stats.current_puzzle_streak + 1,
+                best_puzzle_streak = MAX(user_stats.best_puzzle_streak, user_stats.current_puzzle_streak + 1),
+                total_training_time = user_stats.total_training_time + ?,
+                updated_at = CURRENT_TIMESTAMP
+            "#,
+            user_id,
+            time_taken,
+            time_taken
+        )
+        .execute(pool)
+        .await
+        .map_err(|e| {
+            tracing::error!("Failed to update user stats: {}", e);
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?;
+        
+        // Update user rating
+        sqlx::query!(
+            r#"
+            UPDATE users 
+            SET rating = rating + ?, updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+            "#,
+            rating_change,
+            user_id
+        )
+        .execute(pool)
+        .await
+        .map_err(|e| {
+            tracing::error!("Failed to update user rating: {}", e);
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?;
+    } else {
+        // Reset streak on wrong answer
+        sqlx::query!(
+            r#"
+            INSERT INTO user_stats (user_id, puzzles_attempted, current_puzzle_streak, total_training_time)
+            VALUES (?, 1, 0, ?)
+            ON CONFLICT(user_id) DO UPDATE SET
+                puzzles_attempted = user_stats.puzzles_attempted + 1,
+                current_puzzle_streak = 0,
+                total_training_time = user_stats.total_training_time + ?,
+                updated_at = CURRENT_TIMESTAMP
+            "#,
+            user_id,
+            time_taken,
+            time_taken
+        )
+        .execute(pool)
+        .await
+        .map_err(|e| {
+            tracing::error!("Failed to update user stats: {}", e);
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?;
+    }
+    
     // Generate explanation
     let explanation = if correct {
         format!(
@@ -216,24 +313,14 @@ async fn submit_puzzle_solution(
         )
     };
     
-    // Mock time taken (in real app, this would be tracked client-side)
-    let time_taken = 8.5;
-    
     let response = PuzzleSolutionResponse {
         correct,
         rating_change,
         explanation,
-        time_taken,
+        time_taken: time_taken as f32,
         solution_moves: puzzle.solution.clone(),
         user_moves: request.moves,
     };
-    
-    tracing::info!(
-        "Puzzle {} solution submitted: {} (rating change: {})",
-        request.puzzle_id,
-        if correct { "correct" } else { "incorrect" },
-        rating_change
-    );
     
     Ok(Json(response))
 }
@@ -408,54 +495,204 @@ async fn get_puzzle_recommendations(
 
 /// Get user progress for training
 async fn get_user_progress(
-    State(_state): State<AppState>,
+    State(state): State<AppState>,
 ) -> Result<Json<UserProgressResponse>, StatusCode> {
-    // In production, this would fetch from database based on user ID from auth token
-    // For now, returning mock data that shows realistic progress
+    // TODO: In production, extract user_id from JWT token in header
+    // For now, using a test user ID or creating one if none exists
+    let test_user_id = "test-user-001";
+    
+    // Get database pool
+    let pool = &state.db_pool;
+    
+    // Fetch user stats from database
+    let user_stats = sqlx::query!(
+        r#"
+        SELECT 
+            COALESCE(us.puzzles_solved, 0) as puzzles_solved,
+            COALESCE(us.puzzles_attempted, 0) as puzzles_attempted,
+            COALESCE(us.best_puzzle_streak, 0) as best_streak,
+            COALESCE(us.current_puzzle_streak, 0) as current_streak,
+            COALESCE(us.total_training_time, 0) as total_time,
+            COALESCE(u.rating, 1200) as rating
+        FROM users u
+        LEFT JOIN user_stats us ON u.id = us.user_id
+        WHERE u.id = ?
+        "#,
+        test_user_id
+    )
+    .fetch_optional(pool)
+    .await
+    .map_err(|e| {
+        tracing::error!("Database error: {}", e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
+    
+    let (puzzles_solved, puzzles_attempted, best_streak, current_streak, total_time, rating) = 
+        if let Some(stats) = user_stats {
+            (
+                stats.puzzles_solved as u32,
+                stats.puzzles_attempted as u32,
+                stats.best_streak as u32,
+                stats.current_streak as u32,
+                stats.total_time as u32,
+                stats.rating as u32,
+            )
+        } else {
+            // Default values for new users
+            (0, 0, 0, 0, 0, 1200)
+        };
+    
+    // Calculate accuracy
+    let accuracy = if puzzles_attempted > 0 {
+        (puzzles_solved as f32 / puzzles_attempted as f32) * 100.0
+    } else {
+        0.0
+    };
+    
+    // Fetch puzzle performance by theme
+    let theme_performance = sqlx::query!(
+        r#"
+        SELECT 
+            theme,
+            COUNT(*) as attempts,
+            SUM(CASE WHEN solved THEN 1 ELSE 0 END) as solved
+        FROM (
+            SELECT 
+                ps.solved,
+                'Fork' as theme  -- TODO: Add theme to puzzles_solved table
+            FROM puzzles_solved ps
+            WHERE ps.user_id = ?
+        )
+        GROUP BY theme
+        "#,
+        test_user_id
+    )
+    .fetch_all(pool)
+    .await
+    .unwrap_or_default();
+    
+    // Calculate weakest and strongest themes
+    let mut theme_accuracies: Vec<(String, f32)> = theme_performance
+        .iter()
+        .map(|tp| {
+            let accuracy = if tp.attempts > 0 {
+                (tp.solved.unwrap_or(0) as f32 / tp.attempts as f32) * 100.0
+            } else {
+                0.0
+            };
+            (tp.theme.clone().unwrap_or_default(), accuracy)
+        })
+        .collect();
+    
+    theme_accuracies.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
+    
+    let weakest_themes: Vec<String> = theme_accuracies
+        .iter()
+        .take(3)
+        .map(|(theme, _)| theme.clone())
+        .collect();
+    
+    let strongest_themes: Vec<String> = theme_accuracies
+        .iter()
+        .rev()
+        .take(3)
+        .map(|(theme, _)| theme.clone())
+        .collect();
+    
+    // Fetch puzzle count by difficulty
+    let difficulty_stats = sqlx::query!(
+        r#"
+        SELECT 
+            CASE 
+                WHEN puzzle_id % 4 = 0 THEN 'Expert'
+                WHEN puzzle_id % 4 = 1 THEN 'Advanced'
+                WHEN puzzle_id % 4 = 2 THEN 'Intermediate'
+                ELSE 'Beginner'
+            END as difficulty,
+            COUNT(*) as count
+        FROM puzzles_solved
+        WHERE user_id = ? AND solved = 1
+        GROUP BY difficulty
+        "#,
+        test_user_id
+    )
+    .fetch_all(pool)
+    .await
+    .unwrap_or_default();
+    
+    let mut puzzles_by_difficulty = HashMap::new();
+    for stat in difficulty_stats {
+        puzzles_by_difficulty.insert(
+            stat.difficulty.unwrap_or("Unknown".to_string()),
+            stat.count as u32,
+        );
+    }
+    
+    // Ensure all difficulties are represented
+    for difficulty in ["Beginner", "Intermediate", "Advanced", "Expert"] {
+        puzzles_by_difficulty.entry(difficulty.to_string()).or_insert(0);
+    }
+    
+    // Fetch recent performance (last 7 days)
+    let recent_performance = sqlx::query!(
+        r#"
+        SELECT 
+            DATE(created_at) as date,
+            COUNT(*) as total,
+            SUM(CASE WHEN solved THEN 1 ELSE 0 END) as solved,
+            AVG(time_taken_seconds) as avg_time
+        FROM puzzles_solved
+        WHERE user_id = ? AND created_at >= date('now', '-7 days')
+        GROUP BY DATE(created_at)
+        ORDER BY date DESC
+        LIMIT 7
+        "#,
+        test_user_id
+    )
+    .fetch_all(pool)
+    .await
+    .unwrap_or_default()
+    .into_iter()
+    .map(|day| {
+        let accuracy = if day.total > 0 {
+            (day.solved.unwrap_or(0) as f32 / day.total as f32) * 100.0
+        } else {
+            0.0
+        };
+        
+        DailyPerformance {
+            date: day.date.unwrap_or_else(|| Utc::now().format("%Y-%m-%d").to_string()),
+            puzzles_solved: day.solved.unwrap_or(0) as u32,
+            accuracy,
+            avg_time: day.avg_time.unwrap_or(0.0) as f32,
+        }
+    })
+    .collect();
+    
+    // If weakest/strongest themes are empty, provide defaults
+    let weakest_themes = if weakest_themes.is_empty() {
+        vec!["Endgame".to_string(), "Positional".to_string(), "Sacrifice".to_string()]
+    } else {
+        weakest_themes
+    };
+    
+    let strongest_themes = if strongest_themes.is_empty() {
+        vec!["Fork".to_string(), "Pin".to_string(), "Back Rank Mate".to_string()]
+    } else {
+        strongest_themes
+    };
     
     let progress = UserProgressResponse {
-        puzzles_solved: 247,
-        current_rating: 1350,
-        accuracy: 78.5,
-        best_streak: 15,
-        current_streak: 3,
-        weakest_themes: vec![
-            "Endgame".to_string(),
-            "Positional".to_string(),
-            "Sacrifice".to_string(),
-        ],
-        strongest_themes: vec![
-            "Fork".to_string(),
-            "Pin".to_string(),
-            "Back Rank Mate".to_string(),
-        ],
-        total_time_spent: 3600, // 1 hour in seconds
-        puzzles_by_difficulty: HashMap::from([
-            ("Beginner".to_string(), 150),
-            ("Intermediate".to_string(), 80),
-            ("Advanced".to_string(), 17),
-            ("Expert".to_string(), 0),
-        ]),
-        recent_performance: vec![
-            DailyPerformance {
-                date: "2025-08-01".to_string(),
-                puzzles_solved: 15,
-                accuracy: 80.0,
-                avg_time: 4.5,
-            },
-            DailyPerformance {
-                date: "2025-07-31".to_string(),
-                puzzles_solved: 22,
-                accuracy: 77.3,
-                avg_time: 5.2,
-            },
-            DailyPerformance {
-                date: "2025-07-30".to_string(),
-                puzzles_solved: 18,
-                accuracy: 83.3,
-                avg_time: 4.1,
-            },
-        ],
+        puzzles_solved,
+        current_rating: rating,
+        accuracy,
+        best_streak,
+        current_streak,
+        weakest_themes,
+        strongest_themes,
+        total_time_spent: total_time,
+        puzzles_by_difficulty,
+        recent_performance,
     };
     
     Ok(Json(progress))

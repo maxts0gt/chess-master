@@ -1,22 +1,21 @@
-use axum::{routing::get, Router};
+use axum::Router;
+
 use crate::AppState;
 
 pub mod auth;
 pub mod chess;
 pub mod training;
-pub mod users;
 pub mod ai;
+pub mod users;
 
-pub fn create_router() -> Router<AppState> {
+pub fn create_routes() -> Router<AppState> {
     Router::new()
         .nest("/auth", auth::create_router())
         .nest("/chess", chess::create_router())
         .nest("/training", training::create_router())
-        .nest("/users", users::create_router())
         .nest("/ai", ai::create_router())
-        .route("/ping", get(ping))
+        .nest("/users", users::create_router())
 }
 
-async fn ping() -> &'static str {
-    "pong"
-}
+// Export websocket handler
+pub use crate::websocket::multiplayer::MultiplayerHub;
