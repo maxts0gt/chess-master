@@ -1,7 +1,8 @@
-import React, {useState} from 'react';
+import React, {useState, useEffect} from 'react';
 import {NavigationContainer} from '@react-navigation/native';
 import {createStackNavigator} from '@react-navigation/stack';
 import {StatusBar, StyleSheet} from 'react-native';
+import offlineStorage from './src/services/offlineStorage';
 
 // Import screens
 import HomeScreen from './src/screens/HomeScreen';
@@ -25,6 +26,11 @@ const Stack = createStackNavigator();
 
 function App(): JSX.Element {
   const [showSplash, setShowSplash] = useState(true);
+
+  useEffect(() => {
+    // Initialize offline storage
+    offlineStorage.initialize().catch(console.error);
+  }, []);
 
   if (showSplash) {
     return <SplashScreen onFinish={() => setShowSplash(false)} />;

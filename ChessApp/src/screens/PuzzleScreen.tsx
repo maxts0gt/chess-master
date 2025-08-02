@@ -12,8 +12,12 @@ import {
 } from 'react-native';
 import ChessBoard from '../components/ChessBoard';
 import StreakIndicator from '../components/StreakIndicator';
+import OfflineIndicator from '../components/OfflineIndicator';
+import { ChessboardSkeleton, PuzzleStatsSkeleton } from '../components/SkeletonLoader';
 import { useAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { useNetworkStatus } from '../hooks/useNetworkStatus';
+import offlineStorage from '../services/offlineStorage';
 import * as Haptics from 'expo-haptics';
 
 interface PuzzleScreenProps {
@@ -56,6 +60,8 @@ const PuzzleScreen: React.FC<PuzzleScreenProps> = ({ navigation }) => {
   
   const api = useAPI();
   const { user } = useAuth();
+  const networkStatus = useNetworkStatus();
+  const [isOfflineMode, setIsOfflineMode] = useState(false);
 
   useEffect(() => {
     if (isGameActive) {
@@ -107,18 +113,48 @@ const PuzzleScreen: React.FC<PuzzleScreenProps> = ({ navigation }) => {
       setShowHint(false);
       setMoveIndex(0);
       
-      // For now, generate a mock puzzle
-      const mockPuzzle: Puzzle = {
-        id: Math.floor(Math.random() * 1000),
-        fen: 'r1bqkb1r/pppp1ppp/2n2n2/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 4 4',
-        solution: ['Bxf7+', 'Kxf7', 'Ng5+'],
-        description: 'White to play and win material',
-        difficulty: 'Intermediate',
-        theme: 'Fork',
-        rating: 1400,
-      };
+      let puzzle: Puzzle | null = null;
       
-      setCurrentPuzzle(mockPuzzle);
+      // Check if we're online and should fetch from API
+      if (networkStatus.isConnected && !isOfflineMode) {
+        try {
+          // Try to fetch from API (mock for now)
+          const mockPuzzle: Puzzle = {
+            id: Math.floor(Math.random() * 1000),
+            fen: 'r1bqkb1r/pppp1ppp/2n2n2/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 4 4',
+            solution: ['Bxf7+', 'Kxf7', 'Ng5+'],
+            description: 'White to play and win material',
+            difficulty: 'Intermediate',
+            theme: 'Fork',
+            rating: 1400,
+          };
+          puzzle = mockPuzzle;
+          
+          // Cache the puzzle for offline use
+          await offlineStorage.cachePuzzles([puzzle]);
+        } catch (error) {
+          console.error('Error fetching puzzle from API:', error);
+          // Fall back to offline
+          setIsOfflineMode(true);
+        }
+      }
+      
+      // If offline or API failed, use cached puzzle
+      if (!puzzle) {
+        const difficulty = gameMode === 'classic' ? undefined : 'Intermediate';
+        puzzle = await offlineStorage.getRandomPuzzle(difficulty);
+        
+        if (!puzzle) {
+          Alert.alert(
+            'No Puzzles Available',
+            'Please connect to the internet to download more puzzles.',
+            [{ text: 'OK' }]
+          );
+          return;
+        }
+      }
+      
+      setCurrentPuzzle(puzzle);
       
       // Fade in animation
       Animated.timing(fadeAnim, {
@@ -158,23 +194,72 @@ const PuzzleScreen: React.FC<PuzzleScreenProps> = ({ navigation }) => {
     }
   };
 
-  const puzzleSolved = () => {
+  const puzzleSolved = async () => {
     const basePoints = gameMode === 'storm' ? 50 : 100;
     const timeBonus = gameMode === 'storm' ? 0 : Math.floor(1000 / timer);
     const comboBonus = combo * 10;
     const totalPoints = basePoints + timeBonus + comboBonus;
     
-    setScore(score + totalPoints);
-    setStreak(streak + 1);
-    setCombo(combo + 1);
-    setPuzzlesSolved(puzzlesSolved + 1);
+    const newScore = score + totalPoints;
+    const newStreak = streak + 1;
+    const newCombo = combo + 1;
+    const newPuzzlesSolved = puzzlesSolved + 1;
     
-    if (combo + 1 > maxCombo) {
-      setMaxCombo(combo + 1);
+    setScore(newScore);
+    setStreak(newStreak);
+    setCombo(newCombo);
+    setPuzzlesSolved(newPuzzlesSolved);
+    
+    if (newCombo > maxCombo) {
+      setMaxCombo(newCombo);
     }
     
-    if (streak + 1 > bestStreak) {
-      setBestStreak(streak + 1);
+    let newBestStreak = bestStreak;
+    if (newStreak > bestStreak) {
+      setBestStreak(newStreak);
+      newBestStreak = newStreak;
+    }
+    
+    // Save progress offline
+    try {
+      const progress = await offlineStorage.getUserProgress();
+      const modeStats = progress.statsPerMode[gameMode] || {
+        gamesPlayed: 0,
+        bestScore: 0,
+        averageScore: 0,
+        totalTime: 0,
+      };
+      
+      await offlineStorage.saveUserProgress({
+        puzzlesSolved: progress.puzzlesSolved + 1,
+        totalScore: progress.totalScore + totalPoints,
+        bestStreak: Math.max(progress.bestStreak, newBestStreak),
+        lastPlayed: Date.now(),
+        statsPerMode: {
+          ...progress.statsPerMode,
+          [gameMode]: {
+            ...modeStats,
+            bestScore: Math.max(modeStats.bestScore, newScore),
+            totalTime: modeStats.totalTime + timer,
+          },
+        },
+      });
+      
+      // If offline, queue the action for later sync
+      if (!networkStatus.isConnected) {
+        await offlineStorage.addToOfflineQueue({
+          type: 'puzzle_completed',
+          data: {
+            puzzleId: currentPuzzle?.id,
+            score: totalPoints,
+            time: timer,
+            gameMode,
+          },
+          timestamp: Date.now(),
+        });
+      }
+    } catch (error) {
+      console.error('Error saving progress:', error);
     }
     
     // Combo animation
@@ -352,28 +437,64 @@ const PuzzleScreen: React.FC<PuzzleScreenProps> = ({ navigation }) => {
     );
   }
 
-  if (loading || !currentPuzzle) {
+  if (loading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#3b82f6" />
-        <Text style={styles.loadingText}>Loading puzzle...</Text>
+      <View style={styles.container}>
+        <OfflineIndicator />
+        <ScrollView style={styles.container}>
+          <View style={styles.header}>
+            <Text style={styles.title}>
+              {gameMode === 'storm' ? '⚡ Puzzle Storm ⚡' : 
+               gameMode === 'streak' ? '🔥 Streak Mode 🔥' : 
+               '🎯 Classic Training 🎯'}
+            </Text>
+          </View>
+          
+          <PuzzleStatsSkeleton />
+          <ChessboardSkeleton />
+        </ScrollView>
+      </View>
+    );
+  }
+  
+  if (!currentPuzzle) {
+    return (
+      <View style={styles.container}>
+        <OfflineIndicator />
+        <View style={styles.emptyContainer}>
+          <Text style={styles.emptyIcon}>🧩</Text>
+          <Text style={styles.emptyTitle}>No Puzzles Available</Text>
+          <Text style={styles.emptySubtitle}>
+            {networkStatus.isConnected 
+              ? 'Loading puzzles...' 
+              : 'Connect to the internet to download puzzles'}
+          </Text>
+          <TouchableOpacity
+            style={styles.retryButton}
+            onPress={loadNextPuzzle}
+          >
+            <Text style={styles.retryButtonText}>Try Again</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     );
   }
 
   return (
-    <ScrollView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>
-          {gameMode === 'storm' ? '⚡ Puzzle Storm ⚡' : 
-           gameMode === 'streak' ? '🔥 Streak Mode 🔥' : 
-           '🎯 Classic Training 🎯'}
-        </Text>
-        <Text style={styles.subtitle}>
-          {gameMode === 'storm' ? `Time: ${formatTime(stormTimeLeft)}` : 
-           `Time: ${formatTime(timer)}`}
-        </Text>
-      </View>
+    <View style={styles.container}>
+      <OfflineIndicator />
+      <ScrollView style={styles.scrollContainer}>
+        <View style={styles.header}>
+          <Text style={styles.title}>
+            {gameMode === 'storm' ? '⚡ Puzzle Storm ⚡' : 
+             gameMode === 'streak' ? '🔥 Streak Mode 🔥' : 
+             '🎯 Classic Training 🎯'}
+          </Text>
+          <Text style={styles.subtitle}>
+            {gameMode === 'storm' ? `Time: ${formatTime(stormTimeLeft)}` : 
+             `Time: ${formatTime(timer)}`}
+          </Text>
+        </View>
 
       <View style={styles.statsRow}>
         <View style={styles.statBox}>
@@ -488,7 +609,8 @@ const PuzzleScreen: React.FC<PuzzleScreenProps> = ({ navigation }) => {
           </View>
         </View>
       </View>
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 };
 
@@ -496,6 +618,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#0f172a',
+  },
+  scrollContainer: {
+    flex: 1,
   },
   loadingContainer: {
     flex: 1,
@@ -788,6 +913,39 @@ const styles = StyleSheet.create({
     textShadowColor: '#f59e0b',
     textShadowOffset: { width: 0, height: 0 },
     textShadowRadius: 10,
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  emptyIcon: {
+    fontSize: 80,
+    marginBottom: 20,
+  },
+  emptyTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#f8fafc',
+    marginBottom: 10,
+  },
+  emptySubtitle: {
+    fontSize: 16,
+    color: '#64748b',
+    textAlign: 'center',
+    marginBottom: 30,
+  },
+  retryButton: {
+    backgroundColor: '#3b82f6',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
 });
 
