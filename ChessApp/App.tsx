@@ -21,6 +21,7 @@ import GameRoomScreen from './src/screens/GameRoomScreen';
 import TacticalPuzzleScreen from './src/screens/TacticalPuzzleScreen';
 import DeathmatchSessionScreen from './src/screens/DeathmatchSessionScreen';
 import DailyChallengeScreen from './src/screens/DailyChallengeScreen';
+import AICoachingScreen from './src/screens/AICoachingScreen';
 
 // Import context
 import {AuthProvider} from './src/context/AuthContext';
@@ -162,6 +163,13 @@ function App(): JSX.Element {
             component={DailyChallengeScreen}
             options={{
               title: 'Daily Challenge',
+            }}
+          />
+          <Stack.Screen 
+            name="AICoaching" 
+            component={AICoachingScreen}
+            options={{
+              title: 'AI Chess Coach',
             }}
           />
         </Stack.Navigator>

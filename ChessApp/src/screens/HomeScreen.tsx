@@ -110,10 +110,10 @@ const HomeScreen: React.FC<HomeScreenProps> = ({navigation}) => {
 
         <TouchableOpacity 
           style={styles.actionButton}
-          onPress={() => navigation.navigate('Training')}>
+          onPress={() => navigation.navigate('AICoaching')}>
           <Text style={styles.actionEmoji}>🤖</Text>
           <Text style={styles.actionTitle}>AI Training</Text>
-          <Text style={styles.actionDescription}>Personal AI coaching</Text>
+          <Text style={styles.actionDescription}>Multi-agent AI coaching</Text>
         </TouchableOpacity>
 
         <TouchableOpacity 
