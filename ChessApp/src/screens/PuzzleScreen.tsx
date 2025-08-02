@@ -53,6 +53,8 @@ const PuzzleScreen: React.FC<PuzzleScreenProps> = ({ navigation }) => {
   const [showResults, setShowResults] = useState(false);
   const [combo, setCombo] = useState(0);
   const [maxCombo, setMaxCombo] = useState(0);
+  const [wrongMoves, setWrongMoves] = useState(0);
+  const [bestScore, setBestScore] = useState(0);
   const [modeAvailability, setModeAvailability] = useState<{[key: string]: boolean}>({
     classic: true,
     storm: true,
@@ -159,6 +161,17 @@ const PuzzleScreen: React.FC<PuzzleScreenProps> = ({ navigation }) => {
     setIsGameActive(false);
     setShowResults(true);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    
+    // Navigate to session complete screen
+    navigation.navigate('SessionComplete', {
+      mode: gameMode,
+      score: score,
+      puzzlesSolved: puzzlesSolved,
+      accuracy: puzzlesSolved > 0 ? (puzzlesSolved / (puzzlesSolved + wrongMoves)) : 0,
+      timeSpent: gameMode === 'storm' ? 180 - stormTimeLeft : timer,
+      bestCombo: maxCombo,
+      newBestScore: score > (bestScore || 0),
+    });
   };
 
   const loadNextPuzzle = async () => {
@@ -348,6 +361,7 @@ const PuzzleScreen: React.FC<PuzzleScreenProps> = ({ navigation }) => {
 
   const wrongMove = () => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    setWrongMoves(wrongMoves + 1);
     
     // Shake animation
     Animated.sequence([
@@ -464,48 +478,7 @@ const PuzzleScreen: React.FC<PuzzleScreenProps> = ({ navigation }) => {
     );
   }
 
-  if (showResults && !isGameActive) {
-    return (
-      <View style={styles.container}>
-        <View style={styles.resultsContainer}>
-          <Text style={styles.resultsTitle}>
-            {gameMode === 'storm' ? '⚡ Storm Complete!' : '🏆 Game Over!'}
-          </Text>
-          
-          <View style={styles.resultsStats}>
-            <View style={styles.resultStat}>
-              <Text style={styles.resultValue}>{score}</Text>
-              <Text style={styles.resultLabel}>Total Score</Text>
-            </View>
-            
-            <View style={styles.resultStat}>
-              <Text style={styles.resultValue}>{puzzlesSolved}</Text>
-              <Text style={styles.resultLabel}>Puzzles Solved</Text>
-            </View>
-            
-            <View style={styles.resultStat}>
-              <Text style={styles.resultValue}>{maxCombo}x</Text>
-              <Text style={styles.resultLabel}>Best Combo</Text>
-            </View>
-          </View>
-          
-          <TouchableOpacity
-            style={styles.playAgainButton}
-            onPress={() => startGame(gameMode)}
-          >
-            <Text style={styles.playAgainText}>Play Again</Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity
-            style={styles.changeModeButton}
-            onPress={() => setShowModeSelection(true)}
-          >
-            <Text style={styles.changeModeText}>Change Mode</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    );
-  }
+  // Results are now shown in SessionCompleteScreen
 
   if (loading) {
     return (
@@ -657,6 +630,15 @@ const PuzzleScreen: React.FC<PuzzleScreenProps> = ({ navigation }) => {
           <Text style={styles.hintButtonText}>💡 Show Hint</Text>
         </TouchableOpacity>
       </View>
+      
+      {gameMode === 'classic' && puzzlesSolved > 0 && (
+        <TouchableOpacity
+          style={styles.endSessionButton}
+          onPress={endGame}
+        >
+          <Text style={styles.endSessionButtonText}>🏁 End Session</Text>
+        </TouchableOpacity>
+      )}
 
       <View style={styles.achievementSection}>
         <Text style={styles.achievementTitle}>🏆 Achievements</Text>
@@ -1022,6 +1004,20 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   retryButtonText: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  endSessionButton: {
+    backgroundColor: '#10b981',
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    borderRadius: 10,
+    marginHorizontal: 20,
+    marginTop: 20,
+    alignItems: 'center',
+  },
+  endSessionButtonText: {
     color: '#ffffff',
     fontSize: 16,
     fontWeight: 'bold',

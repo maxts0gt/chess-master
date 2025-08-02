@@ -15,6 +15,7 @@ import SplashScreen from './src/screens/SplashScreen';
 import TestConnectionScreen from './src/screens/TestConnectionScreen';
 import LobbyBrowserScreen from './src/screens/LobbyBrowserScreen';
 import OnboardingScreen from './src/screens/OnboardingScreen';
+import SessionCompleteScreen from './src/screens/SessionCompleteScreen';
 
 // Import context
 import {AuthProvider} from './src/context/AuthContext';
@@ -97,6 +98,14 @@ function App(): JSX.Element {
             component={OnboardingScreen}
             options={{
               title: 'Get Started',
+              headerShown: false,
+            }}
+          />
+          <Stack.Screen 
+            name="SessionComplete" 
+            component={SessionCompleteScreen}
+            options={{
+              title: 'Results',
               headerShown: false,
             }}
           />
