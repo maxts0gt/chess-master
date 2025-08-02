@@ -53,6 +53,11 @@ const PuzzleScreen: React.FC<PuzzleScreenProps> = ({ navigation }) => {
   const [showResults, setShowResults] = useState(false);
   const [combo, setCombo] = useState(0);
   const [maxCombo, setMaxCombo] = useState(0);
+  const [modeAvailability, setModeAvailability] = useState<{[key: string]: boolean}>({
+    classic: true,
+    storm: true,
+    streak: true,
+  });
   
   const fadeAnim = useState(new Animated.Value(0))[0];
   const shakeAnim = useState(new Animated.Value(0))[0];
@@ -81,8 +86,57 @@ const PuzzleScreen: React.FC<PuzzleScreenProps> = ({ navigation }) => {
       return () => clearInterval(interval);
     }
   }, [isGameActive, gameMode]);
+  
+  useEffect(() => {
+    // Check mode availability when network status changes
+    const checkModeAvailability = async () => {
+      if (!networkStatus.isConnected) {
+        const classicAvail = await offlineStorage.isGameModeAvailable('classic');
+        const stormAvail = await offlineStorage.isGameModeAvailable('storm');
+        const streakAvail = await offlineStorage.isGameModeAvailable('streak');
+        
+        setModeAvailability({
+          classic: classicAvail.available,
+          storm: stormAvail.available,
+          streak: streakAvail.available,
+        });
+      } else {
+        // All modes available when online
+        setModeAvailability({
+          classic: true,
+          storm: true,
+          streak: true,
+        });
+      }
+    };
+    
+    checkModeAvailability();
+  }, [networkStatus.isConnected]);
 
-  const selectGameMode = (mode: GameMode) => {
+  const selectGameMode = async (mode: GameMode) => {
+    // Check if mode is available offline
+    if (!networkStatus.isConnected) {
+      const availability = await offlineStorage.isGameModeAvailable(mode);
+      if (!availability.available) {
+        Alert.alert(
+          'Mode Unavailable Offline',
+          availability.message || 'This mode is not available offline.',
+          [
+            { text: 'OK', style: 'cancel' },
+            { 
+              text: 'Play Classic Instead', 
+              onPress: () => {
+                setGameMode('classic');
+                setShowModeSelection(false);
+                startGame('classic');
+              }
+            },
+          ]
+        );
+        return;
+      }
+    }
+    
     setGameMode(mode);
     setShowModeSelection(false);
     startGame(mode);
@@ -370,24 +424,40 @@ const PuzzleScreen: React.FC<PuzzleScreenProps> = ({ navigation }) => {
           </TouchableOpacity>
           
           <TouchableOpacity
-            style={[styles.modeCard, styles.stormMode]}
+            style={[
+              styles.modeCard, 
+              styles.stormMode,
+              !modeAvailability.storm && styles.modeCardDisabled
+            ]}
             onPress={() => selectGameMode('storm')}
+            disabled={!modeAvailability.storm}
           >
             <Text style={styles.modeCardTitle}>⚡ Puzzle Storm</Text>
             <Text style={styles.modeCardDescription}>
               3 minutes of rapid-fire puzzles. How many can you solve?
             </Text>
-            <Text style={styles.modeCardBadge}>NEW!</Text>
+            {!networkStatus.isConnected && !modeAvailability.storm && (
+              <Text style={styles.modeCardOffline}>🔒 Needs 20+ puzzles offline</Text>
+            )}
+            {modeAvailability.storm && <Text style={styles.modeCardBadge}>NEW!</Text>}
           </TouchableOpacity>
           
           <TouchableOpacity
-            style={[styles.modeCard, styles.streakMode]}
+            style={[
+              styles.modeCard, 
+              styles.streakMode,
+              !modeAvailability.streak && styles.modeCardDisabled
+            ]}
             onPress={() => selectGameMode('streak')}
+            disabled={!modeAvailability.streak}
           >
             <Text style={styles.modeCardTitle}>🔥 Streak Mode</Text>
             <Text style={styles.modeCardDescription}>
               How far can you go without a mistake?
             </Text>
+            {!networkStatus.isConnected && !modeAvailability.streak && (
+              <Text style={styles.modeCardOffline}>🔒 Needs 10+ puzzles offline</Text>
+            )}
           </TouchableOpacity>
         </View>
       </View>
@@ -850,6 +920,15 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: 'bold',
     color: '#f1f5f9',
+  },
+  modeCardDisabled: {
+    opacity: 0.5,
+  },
+  modeCardOffline: {
+    fontSize: 12,
+    color: '#fbbf24',
+    marginTop: 8,
+    fontStyle: 'italic',
   },
   resultsContainer: {
     padding: 20,
