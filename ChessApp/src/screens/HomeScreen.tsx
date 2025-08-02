@@ -1,6 +1,7 @@
 import React from 'react';
 import {View, Text, StyleSheet, TouchableOpacity, ScrollView} from 'react-native';
 import {useAuth} from '../context/AuthContext';
+import DailyChallenge from '../components/DailyChallenge';
 
 interface HomeScreenProps {
   navigation: any;
@@ -96,6 +97,8 @@ const HomeScreen: React.FC<HomeScreenProps> = ({navigation}) => {
         </View>
       </View>
 
+      <DailyChallenge onPress={() => navigation.navigate('DailyChallenge')} />
+
       <View style={styles.actionsContainer}>
         <TouchableOpacity 
           style={styles.actionButton}
@@ -107,10 +110,10 @@ const HomeScreen: React.FC<HomeScreenProps> = ({navigation}) => {
 
         <TouchableOpacity 
           style={styles.actionButton}
-          onPress={() => navigation.navigate('Training')}>
+          onPress={() => navigation.navigate('AICoaching')}>
           <Text style={styles.actionEmoji}>🤖</Text>
           <Text style={styles.actionTitle}>AI Training</Text>
-          <Text style={styles.actionDescription}>Personal AI coaching</Text>
+          <Text style={styles.actionDescription}>Multi-agent AI coaching</Text>
         </TouchableOpacity>
 
         <TouchableOpacity 

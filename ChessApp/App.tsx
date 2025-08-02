@@ -1,7 +1,9 @@
-import React, {useState} from 'react';
+import React, {useState, useEffect} from 'react';
 import {NavigationContainer} from '@react-navigation/native';
 import {createStackNavigator} from '@react-navigation/stack';
 import {StatusBar, StyleSheet} from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import offlineStorage from './src/services/offlineStorage';
 
 // Import screens
 import HomeScreen from './src/screens/HomeScreen';
@@ -13,6 +15,13 @@ import PuzzleScreen from './src/screens/PuzzleScreen';
 import SplashScreen from './src/screens/SplashScreen';
 import TestConnectionScreen from './src/screens/TestConnectionScreen';
 import LobbyBrowserScreen from './src/screens/LobbyBrowserScreen';
+import OnboardingScreen from './src/screens/OnboardingScreen';
+import SessionCompleteScreen from './src/screens/SessionCompleteScreen';
+import GameRoomScreen from './src/screens/GameRoomScreen';
+import TacticalPuzzleScreen from './src/screens/TacticalPuzzleScreen';
+import DeathmatchSessionScreen from './src/screens/DeathmatchSessionScreen';
+import DailyChallengeScreen from './src/screens/DailyChallengeScreen';
+import AICoachingScreen from './src/screens/AICoachingScreen';
 
 // Import context
 import {AuthProvider} from './src/context/AuthContext';
@@ -24,8 +33,33 @@ const Stack = createStackNavigator();
 
 function App(): JSX.Element {
   const [showSplash, setShowSplash] = useState(true);
+  const [isFirstLaunch, setIsFirstLaunch] = useState(true);
 
-  if (showSplash) {
+  useEffect(() => {
+    // Initialize offline storage
+    offlineStorage.initialize().catch(console.error);
+    
+    // Check if this is the first launch
+    checkFirstLaunch();
+  }, []);
+  
+  const checkFirstLaunch = async () => {
+    try {
+      const hasLaunched = await AsyncStorage.getItem('hasLaunched');
+      if (hasLaunched) {
+        setIsFirstLaunch(false);
+        // Skip splash for returning users
+        setShowSplash(false);
+      } else {
+        // Mark as launched for next time
+        await AsyncStorage.setItem('hasLaunched', 'true');
+      }
+    } catch (error) {
+      console.error('Error checking first launch:', error);
+    }
+  };
+
+  if (showSplash && isFirstLaunch) {
     return <SplashScreen onFinish={() => setShowSplash(false)} />;
   }
 
@@ -84,6 +118,59 @@ function App(): JSX.Element {
             name="LobbyBrowser" 
             component={LobbyBrowserScreen}
             options={{title: 'Online Games'}}
+          />
+          <Stack.Screen 
+            name="Onboarding" 
+            component={OnboardingScreen}
+            options={{
+              title: 'Get Started',
+              headerShown: false,
+            }}
+          />
+          <Stack.Screen 
+            name="SessionComplete" 
+            component={SessionCompleteScreen}
+            options={{
+              title: 'Results',
+              headerShown: false,
+            }}
+          />
+          <Stack.Screen 
+            name="GameRoom" 
+            component={GameRoomScreen}
+            options={{
+              title: 'Game Room',
+              headerShown: false,
+            }}
+          />
+          <Stack.Screen 
+            name="TacticalPuzzle" 
+            component={TacticalPuzzleScreen}
+            options={{
+              title: 'Tactical Puzzle',
+            }}
+          />
+          <Stack.Screen 
+            name="DeathmatchSession" 
+            component={DeathmatchSessionScreen}
+            options={{
+              title: 'Deathmatch Training',
+              headerShown: false,
+            }}
+          />
+          <Stack.Screen 
+            name="DailyChallenge" 
+            component={DailyChallengeScreen}
+            options={{
+              title: 'Daily Challenge',
+            }}
+          />
+          <Stack.Screen 
+            name="AICoaching" 
+            component={AICoachingScreen}
+            options={{
+              title: 'AI Chess Coach',
+            }}
           />
         </Stack.Navigator>
       </NavigationContainer>

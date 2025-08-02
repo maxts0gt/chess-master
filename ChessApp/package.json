@@ -14,6 +14,10 @@
     "@react-navigation/native": "^6.1.7",
     "@react-navigation/stack": "^6.3.17",
     "chess.js": "^1.0.0-beta.6",
+    "expo-blur": "~12.4.1",
+    "expo-haptics": "~12.4.0",
+    "expo-linear-gradient": "~12.3.0",
+    "expo-updates": "~0.18.12",
     "react": "18.2.0",
     "react-native": "0.72.6",
     "react-native-chessboard": "^0.1.2",
@@ -25,7 +29,9 @@
     "react-native-vector-icons": "^10.0.0",
     "expo-haptics": "~12.4.0",
     "expo-blur": "~12.4.1",
-    "expo-updates": "~0.18.12"
+    "expo-updates": "~0.18.12",
+    "expo-linear-gradient": "~12.3.0",
+    "@react-native-community/netinfo": "9.3.5"
   },
   "devDependencies": {
     "@babel/core": "^7.20.0",
