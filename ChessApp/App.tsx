@@ -2,6 +2,7 @@ import React, {useState, useEffect} from 'react';
 import {NavigationContainer} from '@react-navigation/native';
 import {createStackNavigator} from '@react-navigation/stack';
 import {StatusBar, StyleSheet} from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import offlineStorage from './src/services/offlineStorage';
 
 // Import screens
@@ -16,6 +17,10 @@ import TestConnectionScreen from './src/screens/TestConnectionScreen';
 import LobbyBrowserScreen from './src/screens/LobbyBrowserScreen';
 import OnboardingScreen from './src/screens/OnboardingScreen';
 import SessionCompleteScreen from './src/screens/SessionCompleteScreen';
+import GameRoomScreen from './src/screens/GameRoomScreen';
+import TacticalPuzzleScreen from './src/screens/TacticalPuzzleScreen';
+import DeathmatchSessionScreen from './src/screens/DeathmatchSessionScreen';
+import DailyChallengeScreen from './src/screens/DailyChallengeScreen';
 
 // Import context
 import {AuthProvider} from './src/context/AuthContext';
@@ -27,13 +32,33 @@ const Stack = createStackNavigator();
 
 function App(): JSX.Element {
   const [showSplash, setShowSplash] = useState(true);
+  const [isFirstLaunch, setIsFirstLaunch] = useState(true);
 
   useEffect(() => {
     // Initialize offline storage
     offlineStorage.initialize().catch(console.error);
+    
+    // Check if this is the first launch
+    checkFirstLaunch();
   }, []);
+  
+  const checkFirstLaunch = async () => {
+    try {
+      const hasLaunched = await AsyncStorage.getItem('hasLaunched');
+      if (hasLaunched) {
+        setIsFirstLaunch(false);
+        // Skip splash for returning users
+        setShowSplash(false);
+      } else {
+        // Mark as launched for next time
+        await AsyncStorage.setItem('hasLaunched', 'true');
+      }
+    } catch (error) {
+      console.error('Error checking first launch:', error);
+    }
+  };
 
-  if (showSplash) {
+  if (showSplash && isFirstLaunch) {
     return <SplashScreen onFinish={() => setShowSplash(false)} />;
   }
 
@@ -107,6 +132,36 @@ function App(): JSX.Element {
             options={{
               title: 'Results',
               headerShown: false,
+            }}
+          />
+          <Stack.Screen 
+            name="GameRoom" 
+            component={GameRoomScreen}
+            options={{
+              title: 'Game Room',
+              headerShown: false,
+            }}
+          />
+          <Stack.Screen 
+            name="TacticalPuzzle" 
+            component={TacticalPuzzleScreen}
+            options={{
+              title: 'Tactical Puzzle',
+            }}
+          />
+          <Stack.Screen 
+            name="DeathmatchSession" 
+            component={DeathmatchSessionScreen}
+            options={{
+              title: 'Deathmatch Training',
+              headerShown: false,
+            }}
+          />
+          <Stack.Screen 
+            name="DailyChallenge" 
+            component={DailyChallengeScreen}
+            options={{
+              title: 'Daily Challenge',
             }}
           />
         </Stack.Navigator>

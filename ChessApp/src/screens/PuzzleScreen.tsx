@@ -55,6 +55,8 @@ const PuzzleScreen: React.FC<PuzzleScreenProps> = ({ navigation }) => {
   const [maxCombo, setMaxCombo] = useState(0);
   const [wrongMoves, setWrongMoves] = useState(0);
   const [bestScore, setBestScore] = useState(0);
+  const [showCountdown, setShowCountdown] = useState(false);
+  const [countdownNumber, setCountdownNumber] = useState(3);
   const [modeAvailability, setModeAvailability] = useState<{[key: string]: boolean}>({
     classic: true,
     storm: true,
@@ -152,9 +154,30 @@ const PuzzleScreen: React.FC<PuzzleScreenProps> = ({ navigation }) => {
     setPuzzlesSolved(0);
     setTimer(0);
     setStormTimeLeft(180);
-    setIsGameActive(true);
     setShowResults(false);
-    loadNextPuzzle();
+    
+    if (mode === 'storm') {
+      // Show countdown for storm mode
+      setShowCountdown(true);
+      setCountdownNumber(3);
+      
+      const countdownInterval = setInterval(() => {
+        setCountdownNumber(prev => {
+          if (prev <= 1) {
+            clearInterval(countdownInterval);
+            setShowCountdown(false);
+            setIsGameActive(true);
+            loadNextPuzzle();
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    } else {
+      // Start immediately for other modes
+      setIsGameActive(true);
+      loadNextPuzzle();
+    }
   };
 
   const endGame = () => {
@@ -478,8 +501,28 @@ const PuzzleScreen: React.FC<PuzzleScreenProps> = ({ navigation }) => {
     );
   }
 
-  // Results are now shown in SessionCompleteScreen
-
+    // Results are now shown in SessionCompleteScreen
+  
+  if (showCountdown) {
+    return (
+      <View style={styles.container}>
+        <LinearGradient
+          colors={['#0f172a', '#1e293b']}
+          style={styles.countdownContainer}
+        >
+          <Text style={styles.countdownTitle}>⚡ PUZZLE STORM ⚡</Text>
+          <Text style={styles.countdownSubtitle}>Get Ready!</Text>
+          <Animated.View style={styles.countdownNumberContainer}>
+            <Text style={styles.countdownNumberText}>{countdownNumber || 'GO!'}</Text>
+          </Animated.View>
+          <Text style={styles.countdownTip}>
+            Solve as many puzzles as you can in 3 minutes!
+          </Text>
+        </LinearGradient>
+      </View>
+    );
+  }
+  
   if (loading) {
     return (
       <View style={styles.container}>
@@ -1021,6 +1064,50 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  countdownContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  countdownTitle: {
+    fontSize: 36,
+    fontWeight: 'bold',
+    color: '#fbbf24',
+    marginBottom: 10,
+    textShadowColor: '#f59e0b',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 10,
+  },
+  countdownSubtitle: {
+    fontSize: 24,
+    color: '#94a3b8',
+    marginBottom: 40,
+  },
+  countdownNumberContainer: {
+    width: 150,
+    height: 150,
+    borderRadius: 75,
+    backgroundColor: '#3b82f6',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 40,
+    shadowColor: '#3b82f6',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  countdownNumberText: {
+    fontSize: 72,
+    fontWeight: 'bold',
+    color: '#ffffff',
+  },
+  countdownTip: {
+    fontSize: 16,
+    color: '#64748b',
+    textAlign: 'center',
+    paddingHorizontal: 40,
   },
 });
 

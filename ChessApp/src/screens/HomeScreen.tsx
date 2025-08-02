@@ -1,6 +1,7 @@
 import React from 'react';
 import {View, Text, StyleSheet, TouchableOpacity, ScrollView} from 'react-native';
 import {useAuth} from '../context/AuthContext';
+import DailyChallenge from '../components/DailyChallenge';
 
 interface HomeScreenProps {
   navigation: any;
@@ -95,6 +96,8 @@ const HomeScreen: React.FC<HomeScreenProps> = ({navigation}) => {
           <Text style={styles.statLabel}>Win Rate</Text>
         </View>
       </View>
+
+      <DailyChallenge onPress={() => navigation.navigate('DailyChallenge')} />
 
       <View style={styles.actionsContainer}>
         <TouchableOpacity 
