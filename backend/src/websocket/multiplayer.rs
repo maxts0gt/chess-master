@@ -1,5 +1,5 @@
 use axum::{
-    extract::{ws::{Message, WebSocket, WebSocketUpgrade}, State, Path},
+    extract::{ws::{Message, WebSocket, WebSocketUpgrade}, State, Path, Query},
     response::Response,
 };
 use futures::{sink::SinkExt, stream::StreamExt};
@@ -9,6 +9,7 @@ use std::sync::Arc;
 use tokio::sync::{Mutex, RwLock, broadcast};
 use uuid::Uuid;
 use tracing::{info, warn, error};
+use sqlx::SqlitePool;
 
 use crate::AppState;
 
@@ -28,6 +29,7 @@ pub struct Player {
     pub username: String,
     pub rating: i32,
     pub connection_id: String,
+    pub is_premium: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -147,33 +149,67 @@ pub enum ServerMessage {
         spectator_id: String,
         spectator_count: usize,
     },
+    PremiumRequired {
+        message: String,
+        upgrade_url: String,
+    },
     Error {
         message: String,
     },
 }
 
+#[derive(Deserialize)]
+pub struct WsQuery {
+    user_id: String,
+    username: String,
+    #[serde(default)]
+    rating: i32,
+}
+
 pub struct MultiplayerHub {
     rooms: Arc<RwLock<HashMap<String, Arc<Mutex<GameRoom>>>>>,
     connections: Arc<RwLock<HashMap<String, broadcast::Sender<ServerMessage>>>>,
+    db: SqlitePool,
 }
 
 impl MultiplayerHub {
-    pub fn new() -> Self {
+    pub fn new(db: SqlitePool) -> Self {
         Self {
             rooms: Arc::new(RwLock::new(HashMap::new())),
             connections: Arc::new(RwLock::new(HashMap::new())),
+            db,
         }
     }
     
     pub async fn handle_connection(
         &self,
         ws: WebSocketUpgrade,
-        user_id: String,
-        username: String,
-        rating: i32,
+        Query(query): Query<WsQuery>,
     ) -> Response {
         let hub = self.clone();
-        ws.on_upgrade(move |socket| hub.handle_socket(socket, user_id, username, rating))
+        ws.on_upgrade(move |socket| hub.handle_socket(socket, query.user_id, query.username, query.rating))
+    }
+    
+    async fn check_premium_status(&self, user_id: &str) -> bool {
+        let result = sqlx::query!(
+            r#"
+            SELECT is_premium, premium_expires_at
+            FROM users
+            WHERE id = ?
+            "#,
+            user_id
+        )
+        .fetch_optional(&self.db)
+        .await;
+
+        if let Ok(Some(user)) = result {
+            user.is_premium && 
+            user.premium_expires_at
+                .map(|exp| exp > chrono::Utc::now())
+                .unwrap_or(false)
+        } else {
+            false
+        }
     }
     
     async fn handle_socket(
@@ -185,6 +221,9 @@ impl MultiplayerHub {
     ) {
         let (mut sender, mut receiver) = socket.split();
         let connection_id = Uuid::new_v4().to_string();
+        
+        // Check premium status
+        let is_premium = self.check_premium_status(&user_id).await;
         
         // Create broadcast channel for this connection
         let (tx, mut rx) = broadcast::channel(100);
@@ -209,6 +248,7 @@ impl MultiplayerHub {
             username: username.clone(),
             rating,
             connection_id: connection_id.clone(),
+            is_premium,
         };
         
         while let Some(msg) = receiver.next().await {
@@ -235,6 +275,15 @@ impl MultiplayerHub {
     ) {
         match msg {
             ClientMessage::CreateRoom { time_control, increment, private } => {
+                // Check premium status for multiplayer
+                if !player.is_premium {
+                    let _ = tx.send(ServerMessage::PremiumRequired {
+                        message: "Multiplayer games are available for premium users only. Upgrade to play with friends!".to_string(),
+                        upgrade_url: "/premium".to_string(),
+                    });
+                    return;
+                }
+                
                 let room_id = if private {
                     // Generate a readable room code for private rooms
                     generate_room_code()
@@ -288,6 +337,15 @@ impl MultiplayerHub {
             }
             
             ClientMessage::JoinRoom { room_id, as_spectator } => {
+                // Check premium status for playing (spectating is free)
+                if !as_spectator && !player.is_premium {
+                    let _ = tx.send(ServerMessage::PremiumRequired {
+                        message: "Multiplayer games are available for premium users only. You can watch as a spectator or upgrade to play!".to_string(),
+                        upgrade_url: "/premium".to_string(),
+                    });
+                    return;
+                }
+                
                 if let Some(room_arc) = self.rooms.read().await.get(&room_id) {
                     let mut room = room_arc.lock().await;
                     
@@ -413,6 +471,14 @@ impl MultiplayerHub {
             ClientMessage::SendMessage { text } => {
                 // Find which room the player is in
                 if let Some((room_id, _)) = self.find_player_room(&player.id).await {
+                    // Basic chat moderation
+                    if text.len() > 200 {
+                        let _ = tx.send(ServerMessage::Error {
+                            message: "Message too long (max 200 characters)".to_string(),
+                        });
+                        return;
+                    }
+                    
                     self.broadcast_to_room(&room_id, ServerMessage::ChatMessage {
                         player_id: player.id.clone(),
                         username: player.username.clone(),
@@ -494,6 +560,7 @@ impl Clone for MultiplayerHub {
         Self {
             rooms: Arc::clone(&self.rooms),
             connections: Arc::clone(&self.connections),
+            db: self.db.clone(),
         }
     }
 }
