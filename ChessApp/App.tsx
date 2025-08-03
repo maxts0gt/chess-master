@@ -22,6 +22,7 @@ import TacticalPuzzleScreen from './src/screens/TacticalPuzzleScreen';
 import DeathmatchSessionScreen from './src/screens/DeathmatchSessionScreen';
 import DailyChallengeScreen from './src/screens/DailyChallengeScreen';
 import AICoachingScreen from './src/screens/AICoachingScreen';
+import GameModeScreen from './src/screens/GameModeScreen';
 
 // Import context
 import {AuthProvider} from './src/context/AuthContext';
@@ -98,6 +99,11 @@ function App(): JSX.Element {
             name="Training" 
             component={TrainingScreen}
             options={{title: 'AI Training'}}
+          />
+          <Stack.Screen 
+            name="GameMode" 
+            component={GameModeScreen}
+            options={{title: 'New Game'}}
           />
           <Stack.Screen 
             name="Game" 

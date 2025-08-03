@@ -12,12 +12,15 @@ import {
 import { useAPI, ChessAnalysis, AICoachingResponse, MoveSuggestions } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import ChessBoard from '../components/ChessBoard';
+import { Chess } from 'chess.js';
+import { chessAI } from '../services/chessAI';
 
 interface GameScreenProps {
   navigation: any;
+  route?: any;
 }
 
-const GameScreen: React.FC<GameScreenProps> = ({navigation}) => {
+const GameScreen: React.FC<GameScreenProps> = ({navigation, route}) => {
   const [currentFen, setCurrentFen] = useState('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1');
   const [analysis, setAnalysis] = useState<ChessAnalysis | null>(null);
   const [aiCoaching, setAiCoaching] = useState<AICoachingResponse | null>(null);
@@ -25,13 +28,42 @@ const GameScreen: React.FC<GameScreenProps> = ({navigation}) => {
   const [loading, setLoading] = useState(false);
   const [selectedAgent, setSelectedAgent] = useState('tactical');
   const [gameId, setGameId] = useState<string | null>(null);
+  const [isAIThinking, setIsAIThinking] = useState(false);
+  
+  // Game mode settings from navigation
+  const gameMode = route?.params?.mode || 'pvp';
+  const playerColor = route?.params?.playerColor || 'white';
+  const difficulty = route?.params?.difficulty || 'medium';
   
   const api = useAPI();
   const { user } = useAuth();
+  
+  useEffect(() => {
+    // Set AI difficulty
+    if (gameMode === 'pvc') {
+      chessAI.setDifficulty(difficulty);
+    }
+  }, [gameMode, difficulty]);
 
   useEffect(() => {
     // Load initial position
-    analyzeCurrentPosition();
+    if (!route?.params?.offlineMode) {
+      analyzeCurrentPosition();
+    }
+    
+    // If playing against AI and AI plays white, make first move
+    if (gameMode === 'pvc' && playerColor === 'black') {
+      setIsAIThinking(true);
+      setTimeout(() => {
+        const chess = new Chess();
+        const aiMove = chessAI.getBestMove(chess.fen(), 3000);
+        if (aiMove) {
+          chess.move(aiMove);
+          setCurrentFen(chess.fen());
+        }
+        setIsAIThinking(false);
+      }, 500);
+    }
   }, []);
 
   const analyzeCurrentPosition = async () => {
@@ -140,8 +172,14 @@ const GameScreen: React.FC<GameScreenProps> = ({navigation}) => {
   return (
     <ScrollView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>♟ Chess Master ♟</Text>
-        <Text style={styles.subtitle}>AI-Powered Chess Analysis</Text>
+        <Text style={styles.title}>
+          {gameMode === 'pvc' ? '🤖 vs Human' : '👥 Human vs Human'}
+        </Text>
+        <Text style={styles.subtitle}>
+          {gameMode === 'pvc' 
+            ? `Playing as ${playerColor} | ${difficulty} difficulty`
+            : 'Local multiplayer game'}
+        </Text>
       </View>
 
       <View style={styles.gameSection}>
@@ -151,15 +189,46 @@ const GameScreen: React.FC<GameScreenProps> = ({navigation}) => {
             // Update FEN after move
             const newFen = move.after;
             setCurrentFen(newFen);
-            // Auto-analyze new position
-            await analyzeCurrentPosition();
+            
+            // Check if it's a computer game and it's the AI's turn
+            if (gameMode === 'pvc') {
+              const chess = new Chess(newFen);
+              const isPlayerWhite = playerColor === 'white';
+              const isAITurn = (chess.turn() === 'w' && !isPlayerWhite) || 
+                               (chess.turn() === 'b' && isPlayerWhite);
+              
+              if (isAITurn && !chess.isGameOver()) {
+                // Make AI move
+                setIsAIThinking(true);
+                setTimeout(async () => {
+                  const aiMove = chessAI.getBestMove(newFen, 3000); // 3 second time limit
+                  if (aiMove) {
+                    chess.move(aiMove);
+                    setCurrentFen(chess.fen());
+                  }
+                  setIsAIThinking(false);
+                }, 100); // Small delay for better UX
+              }
+            }
+            
+            // Auto-analyze new position (if connected)
+            if (!route?.params?.offlineMode) {
+              await analyzeCurrentPosition();
+            }
           }}
-          playable={true}
+          playable={!isAIThinking}
           showCoordinates={true}
         />
           
           {gameId && (
             <Text style={styles.gameId}>Game ID: {gameId}</Text>
+          )}
+          
+          {isAIThinking && (
+            <View style={styles.aiThinkingContainer}>
+              <ActivityIndicator size="small" color="#3b82f6" />
+              <Text style={styles.aiThinkingText}>AI is thinking...</Text>
+            </View>
           )}
 
         <View style={styles.fenSection}>
@@ -584,6 +653,21 @@ const styles = StyleSheet.create({
     fontSize: 10,
     marginRight: 4,
     marginBottom: 4,
+  },
+  aiThinkingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 10,
+    padding: 10,
+    backgroundColor: '#1e293b',
+    borderRadius: 8,
+  },
+  aiThinkingText: {
+    color: '#3b82f6',
+    fontSize: 14,
+    marginLeft: 8,
+    fontWeight: '600',
   },
 });
 

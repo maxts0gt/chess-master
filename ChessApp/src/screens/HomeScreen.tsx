@@ -118,10 +118,10 @@ const HomeScreen: React.FC<HomeScreenProps> = ({navigation}) => {
 
         <TouchableOpacity 
           style={styles.actionButton}
-          onPress={() => navigation.navigate('Game')}>
+          onPress={() => navigation.navigate('GameMode')}>
           <Text style={styles.actionEmoji}>♟</Text>
           <Text style={styles.actionTitle}>Play Chess</Text>
-          <Text style={styles.actionDescription}>Live games with analysis</Text>
+          <Text style={styles.actionDescription}>Play vs Human or AI</Text>
         </TouchableOpacity>
 
         <TouchableOpacity 
