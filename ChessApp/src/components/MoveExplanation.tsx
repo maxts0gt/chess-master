@@ -18,7 +18,7 @@ interface MoveExplanationProps {
   threats?: string[];
   opportunities?: string[];
   isAIMove?: boolean;
-  explanationType?: 'ai' | 'rule-based';
+  explanationType?: 'ai' | 'rule-based' | 'tiny-llm';
 }
 
 const MoveExplanation: React.FC<MoveExplanationProps> = ({
@@ -57,6 +57,11 @@ const MoveExplanation: React.FC<MoveExplanationProps> = ({
             {explanationType === 'ai' && (
               <View style={styles.aiBadge}>
                 <Text style={styles.aiBadgeText}>AI Teacher</Text>
+              </View>
+            )}
+            {explanationType === 'tiny-llm' && (
+              <View style={[styles.aiBadge, styles.tinyLLMBadge]}>
+                <Text style={styles.aiBadgeText}>AI Lite</Text>
               </View>
             )}
             <Text style={styles.strategicValue}>{strategicValue}</Text>
@@ -223,6 +228,9 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: 12,
     marginRight: 8,
+  },
+  tinyLLMBadge: {
+    backgroundColor: '#06b6d4',
   },
   aiBadgeText: {
     color: '#fff',

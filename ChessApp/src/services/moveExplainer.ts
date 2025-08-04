@@ -3,6 +3,7 @@
 import { Chess } from 'chess.js';
 import { ollamaService } from './ollamaService';
 import { offlineTeacher } from './offlineChessTeacher';
+import { tinyLLMExplainer } from './tinyLLM/tinyLLMChessExplainer';
 
 interface MoveExplanation {
   move: string;
@@ -13,16 +14,23 @@ interface MoveExplanation {
   strategicValue: string;
   threats?: string[];
   opportunities?: string[];
-  explanationType?: 'ai' | 'rule-based';
+  explanationType?: 'ai' | 'rule-based' | 'tiny-llm';
 }
 
 export class MoveExplainer {
   private chess: Chess;
   private useAIExplanations: boolean = true;
+  private tinyLLMAvailable: boolean = false;
 
   constructor() {
     this.chess = new Chess();
+    this.initialize();
+  }
+
+  private async initialize() {
     this.checkAIAvailability();
+    // Initialize tiny LLM
+    this.tinyLLMAvailable = await tinyLLMExplainer.initialize();
   }
 
   private async checkAIAvailability() {
@@ -137,7 +145,8 @@ Format your response as JSON:
       return this.getDefaultExplanation(move);
     }
 
-    // Try AI explanation first if available
+    // Try AI explanations in order of preference
+    // 1. Full AI (Ollama) if available
     if (this.useAIExplanations && ollamaService.isAvailable) {
       try {
         const aiExplanation = await this.getAIExplanation(fen, moveObj, this.chess);
@@ -147,7 +156,41 @@ Format your response as JSON:
           return aiExplanation;
         }
       } catch (error) {
-        console.log('AI explanation failed, falling back to rule-based');
+        console.log('AI explanation failed, trying tiny LLM');
+      }
+    }
+
+    // 2. Try Tiny LLM if available (runs on device)
+    const modelInfo = tinyLLMExplainer.getModelInfo();
+    if (modelInfo.hasModel) {
+      try {
+        const result = await tinyLLMExplainer.explainMove(fen, move);
+        if (result.source === 'tiny-llm' && result.confidence > 0.8) {
+          // Undo the move to restore original position
+          this.chess.undo();
+          
+          // Get additional context from our methods
+          const threats = this.identifyThreats(this.chess);
+          const opportunities = this.identifyOpportunities(this.chess);
+          
+          return {
+            move: moveObj.san,
+            piece: this.getPieceName(moveObj.piece, moveObj.color),
+            type: this.getMoveType(moveObj),
+            explanation: result.explanation,
+            learningPoints: [
+              "Practice similar positions",
+              "Study master games with this opening",
+              "Focus on piece coordination"
+            ],
+            strategicValue: "Strategic move! 🎯",
+            threats,
+            opportunities,
+            explanationType: 'tiny-llm' as 'ai' | 'rule-based' | 'tiny-llm'
+          };
+        }
+      } catch (error) {
+        console.log('Tiny LLM failed, falling back to offline teacher');
       }
     }
 
