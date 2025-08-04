@@ -18,6 +18,7 @@ interface MoveExplanationProps {
   threats?: string[];
   opportunities?: string[];
   isAIMove?: boolean;
+  explanationType?: 'ai' | 'rule-based';
 }
 
 const MoveExplanation: React.FC<MoveExplanationProps> = ({
@@ -30,6 +31,7 @@ const MoveExplanation: React.FC<MoveExplanationProps> = ({
   threats = [],
   opportunities = [],
   isAIMove = false,
+  explanationType = 'rule-based',
 }) => {
   const [expanded, setExpanded] = useState(true);
   const animatedHeight = useState(new Animated.Value(1))[0];
@@ -52,6 +54,11 @@ const MoveExplanation: React.FC<MoveExplanationProps> = ({
             <Text style={styles.pieceType}>{piece}</Text>
           </View>
           <View style={styles.headerRight}>
+            {explanationType === 'ai' && (
+              <View style={styles.aiBadge}>
+                <Text style={styles.aiBadgeText}>AI Teacher</Text>
+              </View>
+            )}
             <Text style={styles.strategicValue}>{strategicValue}</Text>
             <Text style={styles.expandIcon}>{expanded ? '▼' : '▶'}</Text>
           </View>
@@ -209,6 +216,18 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     marginBottom: 4,
     paddingLeft: 8,
+  },
+  aiBadge: {
+    backgroundColor: '#7c3aed',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginRight: 8,
+  },
+  aiBadgeText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: 'bold',
   },
 });
 

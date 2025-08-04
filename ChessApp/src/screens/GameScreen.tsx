@@ -66,8 +66,9 @@ const GameScreen: React.FC<GameScreenProps> = ({navigation, route}) => {
           chess.move(aiMove);
           
           // Get AI move explanation
-          const aiExplanation = moveExplainer.explainAIMove(initialFen, aiMove);
-          setMoveHistory([{ ...aiExplanation, isAIMove: true }]);
+          moveExplainer.explainAIMove(initialFen, aiMove).then(aiExplanation => {
+            setMoveHistory([{ ...aiExplanation, isAIMove: true }]);
+          });
           
           setCurrentFen(chess.fen());
         }
@@ -197,7 +198,7 @@ const GameScreen: React.FC<GameScreenProps> = ({navigation, route}) => {
           fen={currentFen}
           onMove={async (move) => {
             // Get move explanation for the human move
-            const explanation = moveExplainer.explainMove(currentFen, move);
+            const explanation = await moveExplainer.explainMove(currentFen, move);
             setMoveHistory(prev => [...prev, { ...explanation, isAIMove: false }]);
             
             // Update FEN after move
@@ -222,7 +223,7 @@ const GameScreen: React.FC<GameScreenProps> = ({navigation, route}) => {
                     const afterAIMove = chess.fen();
                     
                     // Get AI move explanation
-                    const aiExplanation = moveExplainer.explainAIMove(beforeAIMove, aiMove);
+                    const aiExplanation = await moveExplainer.explainAIMove(beforeAIMove, aiMove);
                     setMoveHistory(prev => [...prev, { ...aiExplanation, isAIMove: true }]);
                     
                     setCurrentFen(afterAIMove);

@@ -1,6 +1,7 @@
 // Move Explainer Service
 // Provides human-friendly explanations for chess moves
 import { Chess } from 'chess.js';
+import { ollamaService } from './ollamaService';
 
 interface MoveExplanation {
   move: string;
@@ -11,16 +12,99 @@ interface MoveExplanation {
   strategicValue: string;
   threats?: string[];
   opportunities?: string[];
+  explanationType?: 'ai' | 'rule-based';
 }
 
 export class MoveExplainer {
   private chess: Chess;
+  private useAIExplanations: boolean = true;
 
   constructor() {
     this.chess = new Chess();
+    this.checkAIAvailability();
   }
 
-  explainMove(fen: string, move: string | any): MoveExplanation {
+  private async checkAIAvailability() {
+    const available = await ollamaService.checkAvailability();
+    this.useAIExplanations = available;
+  }
+
+  private async getAIExplanation(fen: string, moveObj: any, chess: Chess): Promise<MoveExplanation | null> {
+    const prompt = `You are a friendly chess teacher explaining a move to a student. 
+
+Position before move (FEN): ${fen}
+Move played: ${moveObj.san} (${this.getPieceName(moveObj.piece, moveObj.color)} from ${moveObj.from} to ${moveObj.to})
+${moveObj.captured ? `Captured: ${this.getPieceName(moveObj.captured, moveObj.color === 'w' ? 'b' : 'w')}` : ''}
+${chess.inCheck() ? 'This move gives check!' : ''}
+${chess.isCheckmate() ? 'This is checkmate!' : ''}
+
+Please provide:
+1. A conversational explanation of why this move is good (2-3 sentences, as if talking to a student)
+2. Three specific learning points from this move
+3. A strategic assessment (one short phrase with an emoji)
+4. Any immediate threats the opponent should watch for
+5. Any opportunities this move creates
+
+Format your response as JSON:
+{
+  "explanation": "conversational explanation here",
+  "learningPoints": ["point 1", "point 2", "point 3"],
+  "strategicValue": "assessment with emoji",
+  "threats": ["threat 1", "threat 2"],
+  "opportunities": ["opportunity 1", "opportunity 2"]
+}`;
+
+    try {
+      const response = await ollamaService.generate(prompt, ollamaService.config.models.general);
+      if (!response) return null;
+
+      // Parse the AI response
+      const aiResponse = response.response;
+      
+      // Try to extract JSON from the response
+      const jsonMatch = aiResponse.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) {
+        // If no JSON, try to parse the text response
+        return this.parseTextResponse(aiResponse, moveObj);
+      }
+
+      const parsed = JSON.parse(jsonMatch[0]);
+      
+      return {
+        move: moveObj.san,
+        piece: this.getPieceName(moveObj.piece, moveObj.color),
+        type: this.getMoveType(moveObj),
+        explanation: parsed.explanation || this.generateExplanation(moveObj, chess),
+        learningPoints: parsed.learningPoints || this.getLearningPoints(moveObj, chess),
+        strategicValue: parsed.strategicValue || this.assessStrategicValue(moveObj, chess),
+        threats: parsed.threats || this.identifyThreats(chess),
+        opportunities: parsed.opportunities || this.identifyOpportunities(chess),
+        explanationType: 'ai'
+      };
+    } catch (error) {
+      console.error('Error getting AI explanation:', error);
+      return null;
+    }
+  }
+
+  private parseTextResponse(text: string, moveObj: any): MoveExplanation {
+    // Fallback parser for non-JSON responses
+    const lines = text.split('\n').filter(line => line.trim());
+    
+    return {
+      move: moveObj.san,
+      piece: this.getPieceName(moveObj.piece, moveObj.color),
+      type: this.getMoveType(moveObj),
+      explanation: lines[0] || "The AI is analyzing this move...",
+      learningPoints: lines.slice(1, 4).filter(l => l.length > 0),
+      strategicValue: "AI Analysis 🤖",
+      threats: [],
+      opportunities: [],
+      explanationType: 'ai'
+    };
+  }
+
+  async explainMove(fen: string, move: string | any): Promise<MoveExplanation> {
     // Set up the position
     this.chess.load(fen);
     
@@ -30,7 +114,21 @@ export class MoveExplainer {
       return this.getDefaultExplanation(move);
     }
 
-    // Get human-friendly piece name
+    // Try AI explanation first if available
+    if (this.useAIExplanations && ollamaService.isAvailable) {
+      try {
+        const aiExplanation = await this.getAIExplanation(fen, moveObj, this.chess);
+        if (aiExplanation) {
+          // Undo the move to restore original position
+          this.chess.undo();
+          return aiExplanation;
+        }
+      } catch (error) {
+        console.log('AI explanation failed, falling back to rule-based');
+      }
+    }
+
+    // Fall back to rule-based explanation
     const pieceName = this.getPieceName(moveObj.piece, moveObj.color);
     const moveType = this.getMoveType(moveObj);
     
@@ -52,7 +150,8 @@ export class MoveExplainer {
       learningPoints,
       strategicValue,
       threats,
-      opportunities
+      opportunities,
+      explanationType: 'rule-based'
     };
   }
 
@@ -353,8 +452,8 @@ export class MoveExplainer {
   }
 
   // Get explanation for AI moves
-  explainAIMove(fen: string, move: string, evaluation?: number): MoveExplanation {
-    const basicExplanation = this.explainMove(fen, move);
+  async explainAIMove(fen: string, move: string, evaluation?: number): Promise<MoveExplanation> {
+    const basicExplanation = await this.explainMove(fen, move);
     
     // Add AI-specific insights
     if (evaluation !== undefined) {
@@ -368,7 +467,9 @@ export class MoveExplainer {
     }
 
     // Add learning tip about why AI chose this move
-    basicExplanation.learningPoints.push("💡 The AI considered multiple moves and chose this as the best option");
+    if (basicExplanation.explanationType === 'rule-based') {
+      basicExplanation.learningPoints.push("💡 The AI considered multiple moves and chose this as the best option");
+    }
 
     return basicExplanation;
   }
