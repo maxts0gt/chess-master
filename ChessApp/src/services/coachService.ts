@@ -5,6 +5,9 @@
  * Provides human-like chess coaching completely offline
  */
 
+import { mistralWorker, ChatMessage } from './mistralWorker';
+import { modelDownloader } from './modelDownloadService';
+
 interface CoachOptions {
   maxTokens?: number;
   temperature?: number;
@@ -13,7 +16,7 @@ interface CoachOptions {
 
 class CoachService {
   private initialized = false;
-  private model: any = null;
+  private modelFilename = 'mistral-7b-instruct-v0.2.Q4_K_M.gguf';
   
   // Coach personality template
   private contextTemplate = `You are a friendly chess coach helping players improve their game.
@@ -31,14 +34,28 @@ Explain this move in simple terms:`;
     try {
       console.log('Initializing Mistral 7B coach...');
       
-      // TODO: Load actual Mistral model via llama.cpp bindings
-      // this.model = await loadMistral7B();
+      // Check if model exists, if not it needs to be downloaded first
+      const modelInfo = await modelDownloader.getModelInfo(this.modelFilename);
+      if (!modelInfo.exists) {
+        console.log('Mistral model not found locally. Please download it first.');
+        this.initialized = false;
+        return;
+      }
       
-      this.initialized = true;
+      // Initialize Mistral with optimized settings for mobile
+      await mistralWorker.initialize({
+        modelPath: modelInfo.path!,
+        contextSize: 2048,
+        threads: 4,
+        gpuLayers: 0, // Will be set based on device capabilities
+      });
+      
+      this.initialized = mistralWorker.isReady();
       console.log('Coach initialized successfully');
     } catch (error) {
       console.error('Failed to initialize coach:', error);
       // Don't throw - app should work even without coach
+      this.initialized = false;
     }
   }
 
@@ -64,22 +81,36 @@ Explain this move in simple terms:`;
       .replace('{move}', move);
 
     try {
-      // TODO: Stream tokens from Mistral
-      // yield* this.model.complete(prompt, {
-      //   max_tokens: options.maxTokens || 60,
-      //   temperature: options.temperature || 0.7,
-      //   stream: true
-      // });
+      // Create chat messages for Mistral
+      const messages: ChatMessage[] = [
+        {
+          role: 'user',
+          content: prompt
+        }
+      ];
 
-      // Temporary mock response
-      const mockResponse = this.getMockExplanation(move);
-      for (const word of mockResponse.split(' ')) {
-        yield word + ' ';
-        await new Promise(resolve => setTimeout(resolve, 50));
+      // Stream tokens from Mistral
+      const stream = mistralWorker.generateStream(messages, {
+        maxTokens: options.maxTokens || 60,
+        temperature: options.temperature || 0.7,
+      });
+      
+      for await (const token of stream) {
+        yield token;
       }
     } catch (error) {
       console.error('Coach error:', error);
-      yield "Sorry, I couldn't analyze this move right now.";
+      
+      // Fallback to mock response if Mistral fails
+      if (!mistralWorker.isReady()) {
+        const mockResponse = this.getMockExplanation(move);
+        for (const word of mockResponse.split(' ')) {
+          yield word + ' ';
+          await new Promise(resolve => setTimeout(resolve, 50));
+        }
+      } else {
+        yield "Sorry, I couldn't analyze this move right now.";
+      }
     }
   }
 
@@ -87,12 +118,49 @@ Explain this move in simple terms:`;
    * Get coaching tips for current position
    */
   async getPositionTips(fen: string): Promise<string[]> {
-    // TODO: Implement position analysis
-    return [
-      "Control the center with your pawns",
-      "Develop knights before bishops",
-      "Castle early for king safety"
-    ];
+    if (!this.initialized) {
+      // Return generic tips if coach not available
+      return [
+        "Control the center with your pawns",
+        "Develop knights before bishops",
+        "Castle early for king safety"
+      ];
+    }
+
+    try {
+      const messages: ChatMessage[] = [
+        {
+          role: 'user',
+          content: `You are a chess coach. Analyze this position and give 3 short tips:
+FEN: ${fen}
+Format: Return each tip on a new line, keep them under 10 words each.`
+        }
+      ];
+
+      const response = await mistralWorker.generate(messages, {
+        maxTokens: 100,
+        temperature: 0.5,
+      });
+
+      // Parse response into tips
+      const tips = response
+        .split('\n')
+        .filter(line => line.trim().length > 0)
+        .slice(0, 3);
+
+      return tips.length > 0 ? tips : [
+        "Control the center with your pawns",
+        "Develop knights before bishops",
+        "Castle early for king safety"
+      ];
+    } catch (error) {
+      console.error('Failed to get position tips:', error);
+      return [
+        "Control the center with your pawns",
+        "Develop knights before bishops",
+        "Castle early for king safety"
+      ];
+    }
   }
 
   /**
@@ -114,16 +182,15 @@ Explain this move in simple terms:`;
    * Check if coach is available
    */
   isAvailable(): boolean {
-    return this.initialized && this.model !== null;
+    return this.initialized && mistralWorker.isReady();
   }
 
   /**
    * Cleanup resources
    */
-  terminate() {
-    if (this.model) {
-      // TODO: Unload model
-      this.model = null;
+  async terminate() {
+    if (this.initialized) {
+      await mistralWorker.release();
     }
     this.initialized = false;
   }
