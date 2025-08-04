@@ -12,14 +12,19 @@ import {
   StyleSheet,
   Dimensions,
   ActivityIndicator,
+  Alert,
+  Modal,
+  TextInput,
 } from 'react-native';
 import { Chess } from 'chess.js';
 import { ChessBoard } from './src/components/ChessBoard';
 import { CoachView } from './src/components/CoachView';
+import { PresidentialGameView } from './src/components/PresidentialGameView';
 import { stockfish } from './src/services/stockfishService';
 import { coach } from './src/services/coachService';
+import { purchaseService } from './src/services/purchaseService';
 
-type ViewState = 'home' | 'play' | 'coach' | 'loading';
+type ViewState = 'home' | 'play' | 'coach' | 'loading' | 'presidential';
 
 export default function App() {
   const [view, setView] = useState<ViewState>('loading');
@@ -27,6 +32,11 @@ export default function App() {
   const [fen, setFen] = useState(chess.fen());
   const [lastMove, setLastMove] = useState<string | null>(null);
   const [isAITurn, setIsAITurn] = useState(false);
+  
+  // Presidential Mode states
+  const [showPresidentialModal, setShowPresidentialModal] = useState(false);
+  const [presidentialCode, setPresidentialCode] = useState('');
+  const [isPresidentialHost, setIsPresidentialHost] = useState(false);
 
   // Initialize engines on startup
   useEffect(() => {
@@ -85,6 +95,88 @@ export default function App() {
     setIsAITurn(false);
   };
 
+  // Presidential Mode handlers
+  const handlePresidentialMode = async () => {
+    // Check if Pro is unlocked
+    const isProUnlocked = purchaseService.isProUnlocked();
+    if (!isProUnlocked) {
+      Alert.alert(
+        'Presidential Mode™',
+        'This ultra-secure feature requires Pro Coach unlock.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Unlock Pro',
+            onPress: async () => {
+              try {
+                const success = await purchaseService.purchasePro();
+                if (success) {
+                  setShowPresidentialModal(true);
+                }
+              } catch (error) {
+                // User cancelled or error
+              }
+            },
+          },
+        ]
+      );
+    } else {
+      setShowPresidentialModal(true);
+    }
+  };
+
+  const handleHostGame = () => {
+    setIsPresidentialHost(true);
+    const code = generateGameCode();
+    setPresidentialCode(code);
+    Alert.alert(
+      'Game Code',
+      `Share this code with your opponent:\n\n${code}`,
+      [
+        {
+          text: 'OK',
+          onPress: () => {
+            setShowPresidentialModal(false);
+            setView('presidential');
+          },
+        },
+      ]
+    );
+  };
+
+  const handleJoinGame = () => {
+    // Since Alert.prompt is iOS only, we'll use a different approach
+    setShowPresidentialModal(false);
+    
+    // Show join modal with text input
+    Alert.alert(
+      'Join Game',
+      'Enter the 6-character game code in the next screen',
+      [
+        {
+          text: 'OK',
+          onPress: () => {
+            // For now, use a hardcoded test code
+            // In production, implement a proper text input modal
+            setIsPresidentialHost(false);
+            setPresidentialCode('ABC123');
+            setView('presidential');
+          },
+        },
+        { text: 'Cancel', style: 'cancel' },
+      ]
+    );
+  };
+
+  const generateGameCode = (): string => {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let code = '';
+    for (let i = 0; i < 6; i++) {
+      code += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return code;
+  };
+
   // Loading screen
   if (view === 'loading') {
     return (
@@ -137,6 +229,20 @@ export default function App() {
     );
   }
 
+  // Presidential Mode view
+  if (view === 'presidential') {
+    return (
+      <PresidentialGameView
+        isHost={isPresidentialHost}
+        remoteId={presidentialCode}
+        onBack={() => {
+          setView('home');
+          setPresidentialCode('');
+        }}
+      />
+    );
+  }
+
   // Home screen - just two giant buttons
   return (
     <View style={styles.container}>
@@ -158,9 +264,57 @@ export default function App() {
         <Text style={styles.buttonText}>ASK COACH</Text>
       </TouchableOpacity>
 
+      <TouchableOpacity
+        style={[styles.bigButton, styles.presidentialButton]}
+        onPress={handlePresidentialMode}
+        activeOpacity={0.8}
+      >
+        <Text style={styles.buttonText}>🔐 PRESIDENTIAL MODE</Text>
+      </TouchableOpacity>
+
       <Text style={styles.tagline}>
         Powered by Stockfish & AI
       </Text>
+
+      {/* Presidential Mode Modal */}
+      <Modal
+        visible={showPresidentialModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowPresidentialModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Presidential Mode™</Text>
+            <Text style={styles.modalSubtitle}>
+              Ultra-secure P2P chess with E2E encryption
+            </Text>
+            
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={styles.modalButton}
+                onPress={handleHostGame}
+              >
+                <Text style={styles.modalButtonText}>Host Game</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[styles.modalButton, styles.joinButton]}
+                onPress={handleJoinGame}
+              >
+                <Text style={styles.modalButtonText}>Join Game</Text>
+              </TouchableOpacity>
+            </View>
+            
+            <TouchableOpacity
+              style={styles.modalClose}
+              onPress={() => setShowPresidentialModal(false)}
+            >
+              <Text style={styles.modalCloseText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -234,5 +388,61 @@ const styles = StyleSheet.create({
     color: '#4CAF50',
     fontSize: 16,
     marginLeft: 10,
+  },
+  presidentialButton: {
+    backgroundColor: '#9C27B0',
+    marginTop: 20,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    backgroundColor: '#2a2a2a',
+    borderRadius: 20,
+    padding: 30,
+    width: '90%',
+    maxWidth: 400,
+    alignItems: 'center',
+  },
+  modalTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#fff',
+    marginBottom: 10,
+  },
+  modalSubtitle: {
+    fontSize: 16,
+    color: '#999',
+    textAlign: 'center',
+    marginBottom: 30,
+  },
+  modalButtons: {
+    width: '100%',
+    marginBottom: 20,
+  },
+  modalButton: {
+    backgroundColor: '#4CAF50',
+    paddingVertical: 15,
+    borderRadius: 10,
+    alignItems: 'center',
+    marginBottom: 15,
+  },
+  joinButton: {
+    backgroundColor: '#2196F3',
+  },
+  modalButtonText: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  modalClose: {
+    paddingVertical: 10,
+  },
+  modalCloseText: {
+    color: '#999',
+    fontSize: 16,
   },
 });

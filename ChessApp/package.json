@@ -18,6 +18,9 @@
     "react-native-chessboard": "^1.0.6",
     "react-native-fs": "^2.20.0",
     "react-native-iap": "^12.13.0",
+    "react-native-incall-manager": "^4.1.0",
+    "react-native-libsignal-protocol": "^1.0.1",
+    "react-native-webrtc": "^118.0.1",
     "stockfish.wasm": "^0.10.0"
   },
   "devDependencies": {
