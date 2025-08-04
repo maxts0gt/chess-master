@@ -2,6 +2,7 @@
 // Provides human-friendly explanations for chess moves
 import { Chess } from 'chess.js';
 import { ollamaService } from './ollamaService';
+import { offlineTeacher } from './offlineChessTeacher';
 
 interface MoveExplanation {
   move: string;
@@ -27,6 +28,28 @@ export class MoveExplainer {
   private async checkAIAvailability() {
     const available = await ollamaService.checkAvailability();
     this.useAIExplanations = available;
+  }
+
+  private determineGamePhase(chess: Chess): 'opening' | 'middlegame' | 'endgame' {
+    const history = chess.history();
+    const board = chess.board();
+    
+    // Count pieces
+    let pieceCount = 0;
+    let queenCount = 0;
+    for (let i = 0; i < 8; i++) {
+      for (let j = 0; j < 8; j++) {
+        if (board[i][j]) {
+          pieceCount++;
+          if (board[i][j].type === 'q') queenCount++;
+        }
+      }
+    }
+    
+    // Determine phase
+    if (history.length < 10) return 'opening';
+    if (pieceCount < 14 || queenCount === 0) return 'endgame';
+    return 'middlegame';
   }
 
   private async getAIExplanation(fen: string, moveObj: any, chess: Chess): Promise<MoveExplanation | null> {
@@ -128,14 +151,17 @@ Format your response as JSON:
       }
     }
 
-    // Fall back to rule-based explanation
+    // Use enhanced offline teacher for more natural explanations
     const pieceName = this.getPieceName(moveObj.piece, moveObj.color);
     const moveType = this.getMoveType(moveObj);
+    const gamePhase = this.determineGamePhase(this.chess);
     
-    // Generate comprehensive explanation
-    const explanation = this.generateExplanation(moveObj, this.chess);
-    const learningPoints = this.getLearningPoints(moveObj, this.chess);
-    const strategicValue = this.assessStrategicValue(moveObj, this.chess);
+    // Get natural explanation from offline teacher
+    const explanation = offlineTeacher.explainMove(moveObj, this.chess, gamePhase);
+    const learningPoints = offlineTeacher.getLearningPoints(moveObj, gamePhase);
+    const strategicValue = offlineTeacher.getStrategicAssessment();
+    
+    // Still use our methods for threats and opportunities
     const threats = this.identifyThreats(this.chess);
     const opportunities = this.identifyOpportunities(this.chess);
 
