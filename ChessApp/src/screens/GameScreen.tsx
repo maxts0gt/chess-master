@@ -14,6 +14,8 @@ import { useAuth } from '../context/AuthContext';
 import ChessBoard from '../components/ChessBoard';
 import { Chess } from 'chess.js';
 import { chessAI } from '../services/chessAI';
+import { moveExplainer } from '../services/moveExplainer';
+import MoveExplanation from '../components/MoveExplanation';
 
 interface GameScreenProps {
   navigation: any;
@@ -29,6 +31,8 @@ const GameScreen: React.FC<GameScreenProps> = ({navigation, route}) => {
   const [selectedAgent, setSelectedAgent] = useState('tactical');
   const [gameId, setGameId] = useState<string | null>(null);
   const [isAIThinking, setIsAIThinking] = useState(false);
+  const [moveHistory, setMoveHistory] = useState<any[]>([]);
+  const [showMoveExplanations, setShowMoveExplanations] = useState(true);
   
   // Game mode settings from navigation
   const gameMode = route?.params?.mode || 'pvp';
@@ -56,9 +60,15 @@ const GameScreen: React.FC<GameScreenProps> = ({navigation, route}) => {
       setIsAIThinking(true);
       setTimeout(() => {
         const chess = new Chess();
-        const aiMove = chessAI.getBestMove(chess.fen(), 3000);
+        const initialFen = chess.fen();
+        const aiMove = chessAI.getBestMove(initialFen, 3000);
         if (aiMove) {
           chess.move(aiMove);
+          
+          // Get AI move explanation
+          const aiExplanation = moveExplainer.explainAIMove(initialFen, aiMove);
+          setMoveHistory([{ ...aiExplanation, isAIMove: true }]);
+          
           setCurrentFen(chess.fen());
         }
         setIsAIThinking(false);
@@ -186,6 +196,10 @@ const GameScreen: React.FC<GameScreenProps> = ({navigation, route}) => {
         <ChessBoard 
           fen={currentFen}
           onMove={async (move) => {
+            // Get move explanation for the human move
+            const explanation = moveExplainer.explainMove(currentFen, move);
+            setMoveHistory(prev => [...prev, { ...explanation, isAIMove: false }]);
+            
             // Update FEN after move
             const newFen = move.after;
             setCurrentFen(newFen);
@@ -203,8 +217,15 @@ const GameScreen: React.FC<GameScreenProps> = ({navigation, route}) => {
                 setTimeout(async () => {
                   const aiMove = chessAI.getBestMove(newFen, 3000); // 3 second time limit
                   if (aiMove) {
+                    const beforeAIMove = chess.fen();
                     chess.move(aiMove);
-                    setCurrentFen(chess.fen());
+                    const afterAIMove = chess.fen();
+                    
+                    // Get AI move explanation
+                    const aiExplanation = moveExplainer.explainAIMove(beforeAIMove, aiMove);
+                    setMoveHistory(prev => [...prev, { ...aiExplanation, isAIMove: true }]);
+                    
+                    setCurrentFen(afterAIMove);
                   }
                   setIsAIThinking(false);
                 }, 100); // Small delay for better UX
@@ -253,8 +274,30 @@ const GameScreen: React.FC<GameScreenProps> = ({navigation, route}) => {
           <TouchableOpacity style={styles.newGameButton} onPress={createNewGame}>
             <Text style={styles.newGameButtonText}>🎮 New Game</Text>
           </TouchableOpacity>
+          <TouchableOpacity 
+            style={[styles.toggleButton, showMoveExplanations && styles.toggleButtonActive]}
+            onPress={() => setShowMoveExplanations(!showMoveExplanations)}
+          >
+            <Text style={styles.toggleButtonText}>
+              {showMoveExplanations ? '📖 Hide Explanations' : '📖 Show Explanations'}
+            </Text>
+          </TouchableOpacity>
         </View>
       </View>
+
+      {showMoveExplanations && moveHistory.length > 0 && (
+        <View style={styles.explanationsSection}>
+          <Text style={styles.explanationsTitle}>📚 Move Explanations</Text>
+          <ScrollView style={styles.explanationsList}>
+            {moveHistory.slice(-5).reverse().map((move, index) => (
+              <MoveExplanation
+                key={`${move.move}-${moveHistory.length - index}`}
+                {...move}
+              />
+            ))}
+          </ScrollView>
+        </View>
+      )}
 
       {loading && (
         <View style={styles.loadingContainer}>
@@ -668,6 +711,35 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginLeft: 8,
     fontWeight: '600',
+  },
+  toggleButton: {
+    backgroundColor: '#374151',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    marginLeft: 10,
+  },
+  toggleButtonActive: {
+    backgroundColor: '#3b82f6',
+  },
+  toggleButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  explanationsSection: {
+    marginTop: 20,
+    marginBottom: 20,
+  },
+  explanationsTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#f8fafc',
+    marginBottom: 12,
+    marginHorizontal: 16,
+  },
+  explanationsList: {
+    maxHeight: 400,
   },
 });
 
