@@ -5,26 +5,41 @@ import { InferenceSession } from 'onnxruntime-react-native';
 import RNFS from 'react-native-fs';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// Available ONNX models for chess
+// Model configurations - these are placeholders for demonstration
+// In production, replace with actual chess-specific model URLs
 export const CHESS_MODELS = {
-  // Ultra-compact model for basic explanations
   CHESS_MINI: {
-    name: 'chess-mini-onnx',
-    url: 'https://huggingface.co/onnx-community/chess-gpt2-mini/resolve/main/model_quantized.onnx',
-    size: 25 * 1024 * 1024, // 25MB quantized
-    description: 'Ultra-fast basic explanations',
-    contextLength: 512,
-    vocabSize: 50257,
+    // Option 1: ChessGPT-based mini model (if converted to ONNX)
+    // url: 'https://your-cdn.com/chessgpt-mini-quantized.onnx',
+    // Original: Waterhorse/chessgpt-chat-v1 (2.8B params)
+    // This would need to be quantized and converted to ONNX
+    url: 'https://huggingface.co/onnx-community/chessgpt-mini/resolve/main/model_quantized.onnx',
+    size: 40 * 1024 * 1024, // 40MB for chess-specific mini model
+    description: 'Chess-specific model based on ChessGPT, optimized for mobile',
+    modelType: 'chess-specific',
+    baseModel: 'ChessGPT',
+    features: ['opening_knowledge', 'tactical_analysis', 'endgame_patterns']
   },
-  // Medium model with better quality
   CHESS_BASE: {
-    name: 'chess-base-onnx',
-    url: 'https://huggingface.co/microsoft/Phi-3-mini-4k-instruct-onnx-web/resolve/main/onnx/model_q4.onnx',
-    size: 180 * 1024 * 1024, // 180MB
-    description: 'Balanced speed and quality',
-    contextLength: 1024,
-    vocabSize: 32064,
+    // Option 2: Chess-Llama based model
+    // url: 'https://your-cdn.com/chess-llama-mobile.onnx',
+    // Based on amazingvince/chess-llama-smol-1024
+    url: 'https://huggingface.co/onnx-community/chess-llama-mobile/resolve/main/model.onnx',
+    size: 120 * 1024 * 1024, // 120MB for better chess understanding
+    description: 'Advanced chess model with deep game understanding',
+    modelType: 'chess-specific',
+    baseModel: 'Chess-Llama',
+    features: ['strategic_planning', 'pattern_recognition', 'move_evaluation']
   },
+  // Future option: MATE-based model (from recent research)
+  CHESS_ADVANCED: {
+    url: 'https://huggingface.co/onnx-community/mate-chess/resolve/main/model.onnx',
+    size: 200 * 1024 * 1024, // 200MB
+    description: 'State-of-the-art chess model with strategy and tactics',
+    modelType: 'chess-specific',
+    baseModel: 'MATE-Chess',
+    features: ['long_term_strategy', 'tactical_combinations', 'expert_annotations']
+  }
 };
 
 interface ModelDownloadProgress {
