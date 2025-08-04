@@ -23,6 +23,7 @@ import DeathmatchSessionScreen from './src/screens/DeathmatchSessionScreen';
 import DailyChallengeScreen from './src/screens/DailyChallengeScreen';
 import AICoachingScreen from './src/screens/AICoachingScreen';
 import GameModeScreen from './src/screens/GameModeScreen';
+import TinyLLMSettingsScreen from './src/screens/TinyLLMSettingsScreen';
 
 // Import context
 import {AuthProvider} from './src/context/AuthContext';
@@ -98,15 +99,20 @@ function App(): JSX.Element {
           <Stack.Screen 
             name="Training" 
             component={TrainingScreen}
-            options={{title: 'AI Training'}}
-          />
-          <Stack.Screen 
-            name="GameMode" 
-            component={GameModeScreen}
-            options={{title: 'New Game'}}
-          />
-          <Stack.Screen 
-            name="Game" 
+                          options={{title: 'AI Training'}}
+            />
+            <Stack.Screen
+              name="GameMode"
+              component={GameModeScreen}
+              options={{title: 'New Game'}}
+            />
+            <Stack.Screen
+              name="TinyLLMSettings"
+              component={TinyLLMSettingsScreen}
+              options={{title: 'Tiny LLM Settings'}}
+            />
+            <Stack.Screen 
+              name="Game" 
             component={GameScreen}
             options={{title: 'Play Chess'}}
           />

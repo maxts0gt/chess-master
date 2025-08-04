@@ -1,10 +1,11 @@
 // Tiny LLM Chess Explainer
-// Practical implementation for running small language models in React Native
+// Real implementation using ONNX Runtime for on-device inference
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import RNFS from 'react-native-fs';
 import { Chess } from 'chess.js';
 import { offlineTeacher } from '../offlineChessTeacher';
+import { onnxModelService, CHESS_MODELS } from '../onnx/onnxModelService';
 
 // Model configurations
 const MODEL_CONFIGS = {
@@ -37,8 +38,8 @@ export class TinyLLMChessExplainer {
   private currentModel: string | null = null;
   private offlineTeacher = offlineTeacher;
   
-  // For demonstration - in real app, use actual ONNX runtime
-  private mockInference = true;
+  // Toggle between mock and real ONNX inference
+  private useONNXInference = true;
 
   async initialize(): Promise<boolean> {
     try {
@@ -86,36 +87,37 @@ export class TinyLLMChessExplainer {
     return capabilities;
   }
 
-  async downloadModel(modelKey: keyof typeof MODEL_CONFIGS): Promise<boolean> {
-    const config = MODEL_CONFIGS[modelKey];
-    
+  async downloadModel(modelKey: 'CHESS_MINI' | 'CHESS_BASE'): Promise<boolean> {
     try {
       // Check storage space
       const capabilities = await this.checkDeviceCapabilities();
-      if (capabilities.storage < config.size * 2) {
+      const model = CHESS_MODELS[modelKey];
+      
+      if (capabilities.storage < model.size * 2) {
         throw new Error('Insufficient storage space');
       }
 
-      const modelPath = `${RNFS.DocumentDirectoryPath}/${config.name}.onnx`;
+      // Use real ONNX model service for download
+      const modelPath = await onnxModelService.downloadModel(modelKey, (progress) => {
+        console.log(`Download progress: ${progress.percentage}%`);
+      });
       
-      // In real app, implement actual download with progress
-      console.log(`Downloading ${config.name} (${Math.round(config.size / 1024 / 1024)}MB)...`);
-      
-      // Mock download for demo
-      await this.mockDownload(modelPath, config);
+      // Load the model
+      await onnxModelService.loadModel(modelPath);
       
       // Save model info
       await AsyncStorage.setItem('tinyLLM_model', JSON.stringify({
-        name: config.name,
+        name: model.name,
         path: modelPath,
-        size: config.size,
+        size: model.size,
+        modelKey: modelKey,
       }));
 
-      this.currentModel = config.name;
+      this.currentModel = model.name;
       this.modelLoaded = true;
       return true;
     } catch (error) {
-      console.error('Failed to download model:', error);
+      console.error('Failed to download/load model:', error);
       return false;
     }
   }
@@ -212,17 +214,29 @@ export class TinyLLMChessExplainer {
     // Build context-aware prompt
     const prompt = this.buildPrompt(fen, moveObj, chess, options);
     
-    if (this.mockInference) {
-      // Mock LLM response for demonstration
-      return this.mockLLMResponse(moveObj, chess, options);
+    if (this.useONNXInference && onnxModelService.isModelLoaded()) {
+      // Use real ONNX inference
+      try {
+        const context = {
+          pieces: this.getPiecesFromFEN(fen),
+          gamePhase: this.determineGamePhase(chess),
+          threats: [],
+        };
+        
+        const explanation = await onnxModelService.explainChessMove(
+          moveObj.san,
+          fen,
+          context
+        );
+        
+        return explanation;
+      } catch (error) {
+        console.error('ONNX inference failed, falling back to mock:', error);
+      }
     }
-
-    // Real ONNX inference would go here
-    // const tokens = await this.tokenize(prompt);
-    // const output = await this.runInference(tokens);
-    // return this.decode(output);
     
-    return null;
+    // Fall back to mock response
+    return this.mockLLMResponse(moveObj, chess, options);
   }
 
   private buildPrompt(
@@ -307,6 +321,26 @@ Game phase: ${this.determineGamePhase(chess)}
     if (history.length < 10) return 'opening';
     if (pieceCount < 14 || queenCount === 0) return 'endgame';
     return 'middlegame';
+  }
+
+  private getPiecesFromFEN(fen: string): string[] {
+    const pieces: string[] = [];
+    const board = fen.split(' ')[0];
+    
+    const pieceMap: Record<string, string> = {
+      'p': 'pawn', 'n': 'knight', 'b': 'bishop',
+      'r': 'rook', 'q': 'queen', 'k': 'king',
+      'P': 'Pawn', 'N': 'Knight', 'B': 'Bishop',
+      'R': 'Rook', 'Q': 'Queen', 'K': 'King',
+    };
+    
+    for (const char of board) {
+      if (pieceMap[char]) {
+        pieces.push(pieceMap[char]);
+      }
+    }
+    
+    return [...new Set(pieces)]; // Unique pieces
   }
 
   // Model management methods

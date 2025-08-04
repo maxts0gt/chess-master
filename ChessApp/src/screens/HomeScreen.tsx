@@ -135,6 +135,17 @@ const HomeScreen: React.FC<HomeScreenProps> = ({navigation}) => {
           </View>
         </TouchableOpacity>
 
+        <TouchableOpacity 
+          style={styles.actionButton}
+          onPress={() => navigation.navigate('TinyLLMSettings')}>
+          <Text style={styles.actionEmoji}>🧠</Text>
+          <Text style={styles.actionTitle}>Tiny LLM</Text>
+          <Text style={styles.actionDescription}>On-device AI explanations</Text>
+          <View style={styles.newBadge}>
+            <Text style={styles.newBadgeText}>NEW!</Text>
+          </View>
+        </TouchableOpacity>
+
         {/* Test Connection Button - Remove in production */}
         {__DEV__ && (
           <TouchableOpacity 
