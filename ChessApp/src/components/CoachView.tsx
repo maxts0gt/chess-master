@@ -15,6 +15,7 @@ import {
 import { coach } from '../services/coachService';
 import { purchaseService } from '../services/purchaseService';
 import { ProUpgradeModal } from './ProUpgradeModal';
+import { adaptiveAI } from '../services/adaptiveAIService';
 
 interface CoachViewProps {
   fen: string;
@@ -66,9 +67,14 @@ export const CoachView: React.FC<CoachViewProps> = ({ fen, lastMove, onBack }) =
     }
     
     try {
-      // Stream explanation with typewriter effect
-      for await (const token of coach.explainMove(fen, lastMove)) {
-        setExplanation(prev => prev + token);
+      // Get personalized coaching based on player level
+      const personalizedTip = await adaptiveAI.getPersonalizedTip(fen, lastMove);
+      
+      // Stream with typewriter effect
+      const words = personalizedTip.split(' ');
+      for (const word of words) {
+        setExplanation(prev => prev + word + ' ');
+        await new Promise(resolve => setTimeout(resolve, 50));
       }
     } catch (error) {
       console.error('Coach error:', error);

@@ -70,7 +70,7 @@ class StockfishService {
   /**
    * Get a random legal move (fallback when Stockfish fails)
    */
-  private getRandomMove(fen: string): string {
+  getRandomMove(fen: string): string {
     try {
       const { Chess } = require('chess.js');
       const chess = new Chess(fen);

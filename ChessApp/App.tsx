@@ -23,6 +23,7 @@ import { PresidentialGameView } from './src/components/PresidentialGameView';
 import { stockfish } from './src/services/stockfishService';
 import { coach } from './src/services/coachService';
 import { purchaseService } from './src/services/purchaseService';
+import { adaptiveAI } from './src/services/adaptiveAIService';
 
 type ViewState = 'home' | 'play' | 'coach' | 'loading' | 'presidential';
 
@@ -37,12 +38,17 @@ export default function App() {
   const [showPresidentialModal, setShowPresidentialModal] = useState(false);
   const [presidentialCode, setPresidentialCode] = useState('');
   const [isPresidentialHost, setIsPresidentialHost] = useState(false);
+  
+  // Game tracking
+  const [moveCount, setMoveCount] = useState(0);
+  const [gameStartTime, setGameStartTime] = useState<Date | null>(null);
 
   // Initialize engines on startup
   useEffect(() => {
     Promise.all([
       stockfish.initialize(),
-      coach.initialize()
+      coach.initialize(),
+      adaptiveAI.initialize()
     ]).then(() => {
       setView('home');
     }).catch(error => {
@@ -54,37 +60,92 @@ export default function App() {
   // Handle player move
   const handleMove = async (move: any) => {
     try {
+      // Track game start
+      if (moveCount === 0) {
+        setGameStartTime(new Date());
+      }
+      
       // Update game state
       chess.move(move);
       setFen(chess.fen());
       setLastMove(move.san);
+      setMoveCount(prev => prev + 1);
 
-      // AI responds immediately
-      if (!chess.isGameOver()) {
-        setIsAITurn(true);
-        const aiMove = await stockfish.getBestMove(chess.fen());
-        
-        // Convert UCI to move object
-        const from = aiMove.substring(0, 2);
-        const to = aiMove.substring(2, 4);
-        const promotion = aiMove.substring(4, 5);
-        
-        const moveObj = chess.move({
-          from,
-          to,
-          promotion: promotion || undefined
-        });
-        
-        if (moveObj) {
-          setFen(chess.fen());
-          setLastMove(moveObj.san);
-        }
-        setIsAITurn(false);
+      // Check for game over before AI move
+      if (chess.isGameOver()) {
+        await handleGameEnd();
+        return;
+      }
+
+      // AI responds with adaptive difficulty
+      setIsAITurn(true);
+      const aiMove = await adaptiveAI.getAdaptiveMove(chess.fen());
+      
+      // Convert UCI to move object
+      const from = aiMove.substring(0, 2);
+      const to = aiMove.substring(2, 4);
+      const promotion = aiMove.substring(4, 5);
+      
+      const moveObj = chess.move({
+        from,
+        to,
+        promotion: promotion || undefined
+      });
+      
+      if (moveObj) {
+        setFen(chess.fen());
+        setLastMove(moveObj.san);
+        setMoveCount(prev => prev + 1);
+      }
+      setIsAITurn(false);
+      
+      // Check for game over after AI move
+      if (chess.isGameOver()) {
+        await handleGameEnd();
       }
     } catch (error) {
       console.error('Move error:', error);
       setIsAITurn(false);
     }
+  };
+
+  // Handle game end
+  const handleGameEnd = async () => {
+    if (!gameStartTime) return;
+    
+    const duration = Date.now() - gameStartTime.getTime();
+    let result: 'win' | 'loss' | 'draw';
+    
+    if (chess.isDraw()) {
+      result = 'draw';
+    } else if (chess.isCheckmate()) {
+      // If it's white's turn, black won (and vice versa)
+      result = chess.turn() === 'w' ? 'win' : 'loss';
+    } else {
+      result = 'draw'; // Stalemate or other draw
+    }
+    
+    // Record the game
+    await adaptiveAI.recordGame({
+      result,
+      moves: Math.floor(moveCount / 2), // Count full moves
+      duration,
+      playerColor: 'white', // Player always plays white for now
+      finalPosition: chess.fen(),
+    });
+    
+    // Show result with personalized message
+    const stats = adaptiveAI.getStats();
+    const message = adaptiveAI.getMotivationalMessage();
+    
+    Alert.alert(
+      result === 'win' ? '🎉 Victory!' : result === 'loss' ? '😔 Defeat' : '🤝 Draw',
+      `${message}\n\nLevel: ${stats.currentLevel}/20\nWin Rate: ${Math.round(adaptiveAI.getWinRate() * 100)}%`,
+      [
+        { text: 'Play Again', onPress: resetGame },
+        { text: 'Home', onPress: () => { resetGame(); setView('home'); } },
+      ]
+    );
   };
 
   // Reset game
@@ -93,6 +154,8 @@ export default function App() {
     setFen(chess.fen());
     setLastMove(null);
     setIsAITurn(false);
+    setMoveCount(0);
+    setGameStartTime(null);
   };
 
   // Presidential Mode handlers
@@ -189,6 +252,8 @@ export default function App() {
 
   // Play view - just the board
   if (view === 'play') {
+    const stats = adaptiveAI.getStats();
+    
     return (
       <View style={styles.container}>
         <TouchableOpacity 
@@ -201,6 +266,22 @@ export default function App() {
           <Text style={styles.backText}>← Back</Text>
         </TouchableOpacity>
         
+        {/* Player Stats Bar */}
+        <View style={styles.statsBar}>
+          <View style={styles.statItem}>
+            <Text style={styles.statLabel}>Level</Text>
+            <Text style={styles.statValue}>{stats.currentLevel}/20</Text>
+          </View>
+          <View style={styles.statItem}>
+            <Text style={styles.statLabel}>{adaptiveAI.getLevelDescription()}</Text>
+            <Text style={styles.statValue}>{Math.round(adaptiveAI.getWinRate() * 100)}% wins</Text>
+          </View>
+          <View style={styles.statItem}>
+            <Text style={styles.statLabel}>Streak</Text>
+            <Text style={styles.statValue}>{stats.streak > 0 ? `+${stats.streak}` : stats.streak}</Text>
+          </View>
+        </View>
+        
         <ChessBoard
           fen={fen}
           onMove={handleMove}
@@ -211,7 +292,7 @@ export default function App() {
         {isAITurn && (
           <View style={styles.aiThinking}>
             <ActivityIndicator color="#4CAF50" />
-            <Text style={styles.aiThinkingText}>Thinking...</Text>
+            <Text style={styles.aiThinkingText}>AI Level {stats.currentLevel} thinking...</Text>
           </View>
         )}
       </View>
@@ -244,9 +325,22 @@ export default function App() {
   }
 
   // Home screen - just two giant buttons
+  const playerStats = adaptiveAI.getStats();
+  const playerMessage = adaptiveAI.getMotivationalMessage();
+  
   return (
     <View style={styles.container}>
       <Text style={styles.logo}>♔</Text>
+      
+      {/* Player Progress */}
+      {playerStats.gamesPlayed > 0 && (
+        <View style={styles.homeStats}>
+          <Text style={styles.homeStatsText}>
+            Level {playerStats.currentLevel} • {playerStats.wins}W-{playerStats.losses}L-{playerStats.draws}D
+          </Text>
+          <Text style={styles.homeStatsMessage}>{playerMessage}</Text>
+        </View>
+      )}
       
       <TouchableOpacity
         style={[styles.bigButton, styles.playButton]}
@@ -444,5 +538,47 @@ const styles = StyleSheet.create({
   modalCloseText: {
     color: '#999',
     fontSize: 16,
+  },
+  statsBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    backgroundColor: '#2a2a2a',
+    borderRadius: 15,
+    padding: 15,
+    marginHorizontal: 20,
+    marginBottom: 20,
+    marginTop: 70,
+  },
+  statItem: {
+    alignItems: 'center',
+  },
+  statLabel: {
+    color: '#999',
+    fontSize: 12,
+    marginBottom: 4,
+  },
+  statValue: {
+    color: '#4CAF50',
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  homeStats: {
+    backgroundColor: '#2a2a2a',
+    borderRadius: 15,
+    padding: 20,
+    marginBottom: 30,
+    marginHorizontal: 20,
+    alignItems: 'center',
+  },
+  homeStatsText: {
+    color: '#4CAF50',
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 8,
+  },
+  homeStatsMessage: {
+    color: '#999',
+    fontSize: 14,
+    textAlign: 'center',
   },
 });
