@@ -13,6 +13,8 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { coach } from '../services/coachService';
+import { purchaseService } from '../services/purchaseService';
+import { ProUpgradeModal } from './ProUpgradeModal';
 
 interface CoachViewProps {
   fen: string;
@@ -24,6 +26,14 @@ export const CoachView: React.FC<CoachViewProps> = ({ fen, lastMove, onBack }) =
   const [explanation, setExplanation] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [tips, setTips] = useState<string[]>([]);
+  const [isProUnlocked, setIsProUnlocked] = useState(false);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [questionsAsked, setQuestionsAsked] = useState(0);
+
+  useEffect(() => {
+    // Check Pro status on mount
+    checkProStatus();
+  }, []);
 
   useEffect(() => {
     if (lastMove) {
@@ -33,11 +43,27 @@ export const CoachView: React.FC<CoachViewProps> = ({ fen, lastMove, onBack }) =
     }
   }, [lastMove, fen]);
 
+  const checkProStatus = async () => {
+    await purchaseService.initialize();
+    setIsProUnlocked(purchaseService.isProUnlocked());
+  };
+
   const explainLastMove = async () => {
     if (!lastMove) return;
     
+    // Check if user has Pro or free questions remaining
+    if (!isProUnlocked && questionsAsked >= 3) {
+      setShowUpgradeModal(true);
+      return;
+    }
+    
     setIsLoading(true);
     setExplanation('');
+    
+    // Increment questions asked if not Pro
+    if (!isProUnlocked) {
+      setQuestionsAsked(prev => prev + 1);
+    }
     
     try {
       // Stream explanation with typewriter effect
@@ -70,6 +96,17 @@ export const CoachView: React.FC<CoachViewProps> = ({ fen, lastMove, onBack }) =
       <View style={styles.header}>
         <Text style={styles.coachIcon}>🎓</Text>
         <Text style={styles.title}>Chess Coach</Text>
+        {isProUnlocked ? (
+          <View style={styles.proBadge}>
+            <Text style={styles.proBadgeText}>PRO</Text>
+          </View>
+        ) : (
+          <View style={styles.freeCounter}>
+            <Text style={styles.freeCounterText}>
+              {3 - questionsAsked} free questions left
+            </Text>
+          </View>
+        )}
       </View>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
@@ -101,6 +138,16 @@ export const CoachView: React.FC<CoachViewProps> = ({ fen, lastMove, onBack }) =
             : 'Coach loading...'}
         </Text>
       </View>
+
+      <ProUpgradeModal
+        visible={showUpgradeModal}
+        onClose={() => setShowUpgradeModal(false)}
+        onPurchaseComplete={() => {
+          setIsProUnlocked(true);
+          setQuestionsAsked(0);
+          checkProStatus();
+        }}
+      />
     </View>
   );
 };
@@ -134,6 +181,25 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: 'bold',
     color: '#fff',
+  },
+  proBadge: {
+    backgroundColor: '#FFD700',
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginTop: 8,
+  },
+  proBadgeText: {
+    color: '#1a1a1a',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  freeCounter: {
+    marginTop: 8,
+  },
+  freeCounterText: {
+    color: '#999',
+    fontSize: 14,
   },
   content: {
     flex: 1,
