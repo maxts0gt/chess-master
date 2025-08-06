@@ -1,87 +1,45 @@
-# Chess App - The Ultimate Chess Experience
+# Chess Master Mobile App
 
-## 🚀 Overview
+The ultimate offline chess experience with local AI coaching and secure P2P multiplayer.
 
-The world's most advanced chess app with:
-- **GM-level AI** powered by Stockfish
-- **ChatGPT-style coaching** via Mistral 7B
-- **Presidential Mode™** - Ultra-secure P2P chess
-- **100% offline** - Complete privacy
-- **Two-tap simplicity** - Just PLAY or COACH
+## Features
 
-## 🎯 Features
+- 🧠 **Offline AI**: Mistral AI runs entirely on-device
+- ♟️ **Stockfish Engine**: World-class chess analysis  
+- 🔐 **P2P Multiplayer**: Signal Protocol E2E encryption
+- 🎮 **Training Modes**: Puzzles, daily challenges, AI coaching
+- 📱 **Mobile First**: Optimized for iOS and Android
 
-### 1. Play Chess (Free)
-- Play against Stockfish (world's strongest engine)
-- Instant moves (<200ms)
-- Beautiful, minimalist UI
-- Works completely offline
-
-### 2. AI Coach (Freemium)
-- Get move explanations in natural language
-- Powered by Mistral 7B LLM
-- 3 free questions, then upgrade to Pro
-- Runs 100% on-device
-
-### 3. Presidential Mode™ (Pro)
-- P2P multiplayer with Signal encryption
-- Military-grade E2E security
-- Encrypted chat during games
-- Auto-burn after game ends
-- Perfect for executives & privacy advocates
-
-## 💰 Monetization
-
-- **Free**: Unlimited chess vs AI
-- **Pro Coach ($14.99)**: Unlimited AI coaching + Presidential Mode™
-- One-time purchase, no subscriptions
-
-## 🔧 Technical Stack
-
-- **Frontend**: React Native
-- **Chess Engine**: Stockfish WASM
-- **AI Coach**: Mistral 7B via llama.cpp
-- **P2P**: WebRTC + Signal Protocol
-- **Storage**: Local only (no cloud)
-
-## 📱 Requirements
-
-- iOS 13+ or Android 8+
-- 4GB RAM minimum
-- 2GB storage for AI model
-- No internet required (after initial download)
-
-## 🛡️ Privacy
-
-- **Zero data collection**
-- **No analytics**
-- **No servers**
-- **No accounts**
-- **100% on-device**
-
-## 🚀 Getting Started
+## Quick Start
 
 ```bash
 # Install dependencies
 npm install
 
 # iOS
-cd ios && pod install
-cd .. && npm run ios
+cd ios && pod install && cd ..
+npx react-native run-ios
 
 # Android
-npm run android
+npx react-native run-android
 ```
 
-## 📄 License
+## AI Model Setup
 
-Proprietary. All rights reserved.
+Download and place Mistral model in:
+- Android: `android/app/src/main/assets/models/`
+- iOS: `ios/models/`
 
-### Third-party licenses:
-- Stockfish: GPL-3.0 (source: https://github.com/official-stockfish/Stockfish)
-- Mistral 7B: Apache 2.0
-- Other dependencies: See package.json
+## Architecture
+
+- React Native + TypeScript
+- Mistral AI via llama.rn
+- Stockfish WASM engine
+- WebRTC + Signal Protocol
+- 100% offline capable
+
+See [Presidential Mode Setup](docs/PRESIDENTIAL_MODE_SETUP.md) for P2P multiplayer details.
 
 ---
 
-Built with ❤️ for chess players who value privacy and excellence.
+*No servers. No tracking. Just chess.*
