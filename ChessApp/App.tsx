@@ -21,12 +21,15 @@ import { ChessBoard } from './src/components/ChessBoard';
 import { CoachView } from './src/components/CoachView';
 import { PresidentialGameView } from './src/components/PresidentialGameView';
 import { ModernChessScreen } from './src/screens/ModernChessScreen';
+import { OnboardingScreen } from './src/screens/OnboardingScreen';
+import { PremiumScreen } from './src/screens/PremiumScreen';
 import { stockfish } from './src/services/stockfishService';
 import { coach } from './src/services/coachService';
 import { purchaseService } from './src/services/purchaseService';
 import { adaptiveAI } from './src/services/adaptiveAIService';
+import { premiumService } from './src/services/premiumService';
 
-type ViewState = 'home' | 'play' | 'coach' | 'loading' | 'presidential' | 'modern';
+type ViewState = 'home' | 'play' | 'coach' | 'loading' | 'presidential' | 'modern' | 'onboarding' | 'premium';
 
 export default function App() {
   const [view, setView] = useState<ViewState>('loading');
@@ -46,17 +49,30 @@ export default function App() {
 
   // Initialize engines on startup
   useEffect(() => {
-    Promise.all([
-      stockfish.initialize(),
-      coach.initialize(),
-      adaptiveAI.initialize()
-    ]).then(() => {
-      setView('home');
-    }).catch(error => {
+    checkFirstLaunch();
+  }, []);
+  
+  const checkFirstLaunch = async () => {
+    try {
+      const hasCompletedOnboarding = await AsyncStorage.getItem('@ChessApp:OnboardingComplete');
+      
+      await Promise.all([
+        stockfish.initialize(),
+        coach.initialize(),
+        adaptiveAI.initialize(),
+        premiumService.initialize(),
+      ]);
+      
+      if (hasCompletedOnboarding) {
+        setView('home');
+      } else {
+        setView('onboarding');
+      }
+    } catch (error) {
       console.error('Failed to initialize:', error);
       setView('home'); // Still show home even if init fails
-    });
-  }, []);
+    }
+  };
 
   // Handle player move
   const handleMove = async (move: any) => {
@@ -249,6 +265,40 @@ export default function App() {
         <Text style={styles.loadingText}>Loading Chess Engine...</Text>
       </View>
     );
+  }
+  
+  // Onboarding screen
+  if (view === 'onboarding') {
+    return (
+      <OnboardingScreen 
+        onComplete={(showPremium) => {
+          if (showPremium) {
+            setView('premium');
+          } else {
+            setView('home');
+          }
+        }}
+      />
+    );
+  }
+  
+  // Premium upgrade screen
+  if (view === 'premium') {
+    return (
+      <Modal
+        animationType="slide"
+        transparent={false}
+        visible={true}
+        onRequestClose={() => setView('home')}
+      >
+        <PremiumScreen onClose={() => setView('home')} />
+      </Modal>
+    );
+  }
+  
+  // Modern chess screen
+  if (view === 'modern') {
+    return <ModernChessScreen />;
   }
 
   // Play view - just the board

@@ -27,6 +27,7 @@ import { premiumService } from '../services/premiumService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { theme } from '../styles/theme';
 import { PremiumScreen } from './PremiumScreen';
+import { AICoachChat } from '../components/AICoachChat';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
@@ -62,6 +63,7 @@ export const ModernChessScreen: React.FC = () => {
   const [engineStrength, setEngineStrength] = useState(15);
   const [showPremium, setShowPremium] = useState(false);
   const [hasAIAccess, setHasAIAccess] = useState(false);
+  const [showAIChat, setShowAIChat] = useState(false);
   
   // Animations
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -230,11 +232,7 @@ export const ModernChessScreen: React.FC = () => {
           setShowPremium(true);
           return;
         }
-        const response = await mistralChess.askQuestion(
-          gameState.fen,
-          "What's the best plan in this position?"
-        );
-        console.log('Coach says:', response);
+        setShowAIChat(true);
       },
       color: theme.colors.info,
     },
@@ -379,6 +377,13 @@ export const ModernChessScreen: React.FC = () => {
           <PremiumScreen onClose={() => setShowPremium(false)} />
         </Modal>
       )}
+      
+      <AICoachChat
+        fen={gameState.fen}
+        lastMove={gameState.history[gameState.history.length - 1]}
+        isOpen={showAIChat}
+        onClose={() => setShowAIChat(false)}
+      />
     </SafeAreaView>
   );
 };
