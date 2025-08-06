@@ -20,6 +20,7 @@
     "react-native-iap": "^12.13.0",
     "react-native-incall-manager": "^4.1.0",
     "react-native-libsignal-protocol": "^1.0.1",
+    "react-native-linear-gradient": "^2.8.3",
     "react-native-webrtc": "^118.0.1",
     "stockfish.wasm": "^0.10.0"
   },

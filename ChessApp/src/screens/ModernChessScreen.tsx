@@ -16,14 +16,17 @@ import {
   StatusBar,
   SafeAreaView,
   Platform,
+  Modal,
 } from 'react-native';
 import { Chess } from 'chess.js';
 import { AnimatedChessBoard } from '../components/AnimatedChessBoard';
 import { FloatingActionButton } from '../components/FloatingActionButton';
 import { mistralChess } from '../services/mistralService';
 import { offlineStockfish } from '../services/offlineStockfishService';
+import { premiumService } from '../services/premiumService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { theme } from '../styles/theme';
+import { PremiumScreen } from './PremiumScreen';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
@@ -57,6 +60,8 @@ export const ModernChessScreen: React.FC = () => {
   const [showAnalysis, setShowAnalysis] = useState(true);
   const [playerColor, setPlayerColor] = useState<'w' | 'b'>('w');
   const [engineStrength, setEngineStrength] = useState(15);
+  const [showPremium, setShowPremium] = useState(false);
+  const [hasAIAccess, setHasAIAccess] = useState(false);
   
   // Animations
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -90,11 +95,23 @@ export const ModernChessScreen: React.FC = () => {
   
   const initializeEngines = async () => {
     try {
-      await Promise.all([
-        mistralChess.initialize('mistral-3b-chess'),
-        offlineStockfish.initialize(),
-      ]);
+      // Initialize premium service
+      await premiumService.initialize();
+      setHasAIAccess(premiumService.hasAIAccess());
+      
+      // Subscribe to premium state changes
+      const unsubscribe = premiumService.subscribe((state) => {
+        setHasAIAccess(state.hasAICoach && state.isModelDownloaded);
+      });
+      
+      // Initialize engines
+      await offlineStockfish.initialize();
       offlineStockfish.setStrength(engineStrength);
+      
+      // Initialize Mistral only if user has access
+      if (premiumService.hasAIAccess()) {
+        await mistralChess.initialize('mistral-3b-chess');
+      }
     } catch (error) {
       console.error('Failed to initialize engines:', error);
     }
@@ -209,6 +226,10 @@ export const ModernChessScreen: React.FC = () => {
       icon: '💭',
       label: 'Ask Coach',
       onPress: async () => {
+        if (!hasAIAccess) {
+          setShowPremium(true);
+          return;
+        }
         const response = await mistralChess.askQuestion(
           gameState.fen,
           "What's the best plan in this position?"
@@ -294,7 +315,21 @@ export const ModernChessScreen: React.FC = () => {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Chess Master</Text>
+        <View style={styles.headerTop}>
+          <Text style={styles.title}>Chess Master</Text>
+          {hasAIAccess ? (
+            <View style={styles.aiIndicator}>
+              <Text style={styles.aiIndicatorText}>🤖 AI Active</Text>
+            </View>
+          ) : (
+            <TouchableOpacity
+              style={styles.upgradeButton}
+              onPress={() => setShowPremium(true)}
+            >
+              <Text style={styles.upgradeButtonText}>🔓 Unlock AI</Text>
+            </TouchableOpacity>
+          )}
+        </View>
         <View style={styles.turnIndicator}>
           <View style={[
             styles.turnDot,
@@ -333,6 +368,17 @@ export const ModernChessScreen: React.FC = () => {
         actions={fabActions}
         mainIcon="⚡"
       />
+      
+      {showPremium && (
+        <Modal
+          animationType="slide"
+          transparent={false}
+          visible={showPremium}
+          onRequestClose={() => setShowPremium(false)}
+        >
+          <PremiumScreen onClose={() => setShowPremium(false)} />
+        </Modal>
+      )}
     </SafeAreaView>
   );
 };
@@ -348,9 +394,36 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.surface.elevated,
     ...theme.elevation[2],
   },
+  headerTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
   title: {
     ...theme.typography.headlineMedium,
     color: theme.colors.text.primary,
+    fontWeight: 'bold',
+  },
+  aiIndicator: {
+    backgroundColor: theme.colors.success + '20',
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
+    borderRadius: theme.borderRadius.full,
+  },
+  aiIndicatorText: {
+    ...theme.typography.labelMedium,
+    color: theme.colors.success,
+    fontWeight: 'bold',
+  },
+  upgradeButton: {
+    backgroundColor: theme.colors.secondary.main,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
+    borderRadius: theme.borderRadius.full,
+  },
+  upgradeButtonText: {
+    ...theme.typography.labelMedium,
+    color: theme.colors.secondary.contrast,
     fontWeight: 'bold',
   },
   turnIndicator: {
