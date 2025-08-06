@@ -16,6 +16,7 @@ import {
   Modal,
   TextInput,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Chess } from 'chess.js';
 import { ChessBoard } from './src/components/ChessBoard';
 import { CoachView } from './src/components/CoachView';
