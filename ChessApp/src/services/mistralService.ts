@@ -32,6 +32,7 @@ class MistralChessService {
   private modelPath: string = '';
   private isInitialized: boolean = false;
   private analysisCache: Map<string, ChessAnalysis> = new Map();
+  private systemPrompt: string = 'You are a friendly and knowledgeable chess coach. Provide clear, encouraging guidance while helping players improve their game.';
 
   // Mistral model configurations optimized for chess
   private readonly configs = {
@@ -378,6 +379,46 @@ Use simple language and focus on the key concept:`;
         'Endgame guidance'
       ]
     };
+  }
+
+  /**
+   * Ask a general chess question with context
+   */
+  async askQuestion(context: string, question: string): Promise<string> {
+    if (!this.isInitialized || !this.context) {
+      throw new Error('Mistral service not initialized');
+    }
+
+    try {
+      const prompt = `${this.systemPrompt}
+
+Context: ${context}
+
+User Question: ${question}
+
+Please provide a helpful, encouraging response that focuses on improving the player's understanding and skills.`;
+
+      const response = await this.context.completion({
+        prompt,
+        n_predict: 500,
+        temperature: 0.8,
+        top_k: 40,
+        top_p: 0.95,
+        stop: ['User:', '\n\n']
+      });
+
+      return response.text.trim();
+    } catch (error) {
+      console.error('Error in askQuestion:', error);
+      return "I'm having trouble analyzing your question right now. Could you try rephrasing it or asking something more specific about the position?";
+    }
+  }
+
+  /**
+   * Set system prompt for personality
+   */
+  setSystemPrompt(prompt: string): void {
+    this.systemPrompt = prompt;
   }
 }
 

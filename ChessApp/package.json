@@ -23,6 +23,8 @@
     "react-native-linear-gradient": "^2.8.3",
     "react-native-webrtc": "^118.0.1",
     "@react-native-community/netinfo": "^9.4.1",
+    "react-native-tts": "^4.1.0",
+    "react-native-haptic-feedback": "^2.2.0",
     "stockfish.wasm": "^0.10.0"
   },
   "devDependencies": {

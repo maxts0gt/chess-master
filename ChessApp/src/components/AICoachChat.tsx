@@ -17,9 +17,12 @@ import {
   ActivityIndicator,
   Vibration,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { theme } from '../styles/theme';
 import { mistralChess } from '../services/mistralService';
 import { premiumService } from '../services/premiumService';
+import { voiceService } from '../services/voiceService';
+import { hapticService } from '../services/hapticService';
 
 interface Message {
   id: string;
@@ -147,10 +150,8 @@ export const AICoachChat: React.FC<AICoachChatProps> = ({
     setInputText('');
     setIsTyping(true);
 
-    // Haptic feedback
-    if (Platform.OS === 'ios') {
-      Vibration.vibrate([0, 10]);
-    }
+    // Haptic feedback for sending message
+    hapticService.uiFeedback();
 
     // Add typing indicator
     const typingMessage: Message = {
@@ -176,6 +177,17 @@ export const AICoachChat: React.FC<AICoachChatProps> = ({
           sender: 'ai',
           timestamp: new Date(),
         };
+        
+        // Voice feedback for AI response
+        if (voiceService.isEnabled()) {
+          // Get current AI personality
+          const personality = await AsyncStorage.getItem('@ChessApp:AIPersonality') || 'coach';
+          voiceService.speak(response, personality);
+        }
+        
+        // Haptic feedback for AI response
+        hapticService.aiFeedback();
+        
         return [...filtered, aiMessage];
       });
     } catch (error) {
