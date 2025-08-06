@@ -16,6 +16,7 @@ import {
 } from 'react-native-iap';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform, Alert } from 'react-native';
+import NetInfo from '@react-native-community/netinfo';
 import RNFS from 'react-native-fs';
 import { mistralChess } from './mistralService';
 
@@ -48,6 +49,7 @@ const STORAGE_KEYS = {
   PURCHASES: '@ChessApp:Purchases',
   AI_MODEL_PATH: '@ChessApp:AIModelPath',
   FIRST_TIME_BUYER: '@ChessApp:FirstTimeBuyer',
+  DOWNLOAD_PENDING: '@ChessApp:DownloadPending',
 };
 
 // Model download URL (you'll need to host this)
@@ -102,6 +104,12 @@ class PremiumService {
       
       // Check if AI model is downloaded
       await this.checkModelStatus();
+      
+      // Check for pending downloads
+      await this.checkPendingDownload();
+      
+      // Listen for network changes
+      this.setupNetworkListener();
       
       this.initialized = true;
     } catch (error) {
@@ -275,14 +283,86 @@ class PremiumService {
    * Prompt to download AI model
    */
   private promptModelDownload(): void {
+    // Check network connection type
+    this.checkNetworkAndPromptDownload();
+  }
+  
+  /**
+   * Check network type and show appropriate download prompt
+   */
+  private async checkNetworkAndPromptDownload(): Promise<void> {
+    try {
+      const connectionInfo = await NetInfo.fetch();
+      const isWifi = connectionInfo.type === 'wifi';
+      const isConnected = connectionInfo.isConnected;
+      
+      if (!isConnected) {
+        Alert.alert(
+          '📶 No Internet Connection',
+          'Your purchase is complete! You can download the AI Coach (1.5GB) when you have an internet connection.\n\nThe app will remind you next time you\'re online.',
+          [
+            { text: 'OK', onPress: () => this.scheduleDownloadReminder() }
+          ]
+        );
+        return;
+      }
+      
+      if (!isWifi) {
+        Alert.alert(
+          '📱 Cellular Data Warning',
+          'Your AI Coach is ready to download (1.5GB).\n\n⚠️ You\'re on cellular data. This large download may:\n• Use significant data allowance\n• Incur charges from your carrier\n• Take longer to complete\n\nWe recommend using WiFi.',
+          [
+            { text: 'Wait for WiFi', style: 'cancel', onPress: () => this.scheduleDownloadReminder() },
+            { 
+              text: 'Download Anyway', 
+              style: 'destructive',
+              onPress: () => this.confirmCellularDownload() 
+            },
+          ]
+        );
+      } else {
+        Alert.alert(
+          '✅ Ready to Download',
+          'Great! You\'re on WiFi.\n\nYour AI Coach (1.5GB) is ready to download. This will take a few minutes depending on your connection speed.',
+          [
+            { text: 'Download Later', style: 'cancel', onPress: () => this.scheduleDownloadReminder() },
+            { text: 'Download Now', onPress: () => this.downloadAIModel() },
+          ]
+        );
+      }
+    } catch (error) {
+      // If we can't determine network type, show generic prompt
+      Alert.alert(
+        '🧠 Download AI Coach',
+        `Your purchase is complete! Now let's download your AI coach (1.5GB).\n\n⚠️ Large download - WiFi recommended.`,
+        [
+          { text: 'Later', style: 'cancel', onPress: () => this.scheduleDownloadReminder() },
+          { text: 'Download', onPress: () => this.downloadAIModel() },
+        ]
+      );
+    }
+  }
+  
+  /**
+   * Confirm cellular download
+   */
+  private confirmCellularDownload(): void {
     Alert.alert(
-      '🧠 Download AI Coach',
-      `Your purchase is complete! Now let's download your AI coach (1.5GB).\n\nMake sure you're on WiFi for the best experience.`,
+      '⚠️ Confirm Cellular Download',
+      'Are you sure you want to download 1.5GB over cellular data?',
       [
-        { text: 'Later', style: 'cancel' },
-        { text: 'Download', onPress: () => this.downloadAIModel() },
+        { text: 'Cancel', style: 'cancel', onPress: () => this.scheduleDownloadReminder() },
+        { text: 'Yes, Download', style: 'destructive', onPress: () => this.downloadAIModel() },
       ]
     );
+  }
+  
+  /**
+   * Schedule a reminder to download later
+   */
+  private async scheduleDownloadReminder(): Promise<void> {
+    await AsyncStorage.setItem(STORAGE_KEYS.DOWNLOAD_PENDING, 'true');
+    // The app will check this on next launch or when network changes
   }
 
   /**
@@ -403,6 +483,67 @@ class PremiumService {
     return '1.5 GB';
   }
 
+  /**
+   * Check for pending downloads
+   */
+  private async checkPendingDownload(): Promise<void> {
+    const isPending = await AsyncStorage.getItem(STORAGE_KEYS.DOWNLOAD_PENDING);
+    
+    if (isPending === 'true' && this.state.hasAICoach && !this.state.isModelDownloaded) {
+      // Check if we're on WiFi now
+      const connectionInfo = await NetInfo.fetch();
+      if (connectionInfo.type === 'wifi' && connectionInfo.isConnected) {
+        setTimeout(() => {
+          Alert.alert(
+            '📶 WiFi Connected!',
+            'You\'re now on WiFi. Would you like to download your AI Coach (1.5GB)?',
+            [
+              { text: 'Not Now', style: 'cancel' },
+              { 
+                text: 'Download', 
+                onPress: async () => {
+                  await AsyncStorage.removeItem(STORAGE_KEYS.DOWNLOAD_PENDING);
+                  this.downloadAIModel();
+                }
+              },
+            ]
+          );
+        }, 2000); // Delay to not overwhelm user on app launch
+      }
+    }
+  }
+  
+  /**
+   * Setup network listener for download reminders
+   */
+  private setupNetworkListener(): void {
+    NetInfo.addEventListener(async (state) => {
+      const isPending = await AsyncStorage.getItem(STORAGE_KEYS.DOWNLOAD_PENDING);
+      
+      if (isPending === 'true' && 
+          state.type === 'wifi' && 
+          state.isConnected && 
+          this.state.hasAICoach && 
+          !this.state.isModelDownloaded) {
+        
+        Alert.alert(
+          '📶 WiFi Available',
+          'Great! You\'re connected to WiFi. Download your AI Coach now?',
+          [
+            { text: 'Later', style: 'cancel' },
+            { 
+              text: 'Download Now', 
+              onPress: async () => {
+                await AsyncStorage.removeItem(STORAGE_KEYS.DOWNLOAD_PENDING);
+                this.downloadAIModel();
+              }
+            },
+          ]
+        );
+      }
+    });
+  }
+  
   /**
    * Clean up
    */
