@@ -20,12 +20,13 @@ import { Chess } from 'chess.js';
 import { ChessBoard } from './src/components/ChessBoard';
 import { CoachView } from './src/components/CoachView';
 import { PresidentialGameView } from './src/components/PresidentialGameView';
+import { ModernChessScreen } from './src/screens/ModernChessScreen';
 import { stockfish } from './src/services/stockfishService';
 import { coach } from './src/services/coachService';
 import { purchaseService } from './src/services/purchaseService';
 import { adaptiveAI } from './src/services/adaptiveAIService';
 
-type ViewState = 'home' | 'play' | 'coach' | 'loading' | 'presidential';
+type ViewState = 'home' | 'play' | 'coach' | 'loading' | 'presidential' | 'modern';
 
 export default function App() {
   const [view, setView] = useState<ViewState>('loading');
@@ -344,10 +345,10 @@ export default function App() {
       
       <TouchableOpacity
         style={[styles.bigButton, styles.playButton]}
-        onPress={() => setView('play')}
+        onPress={() => setView('modern')}
         activeOpacity={0.8}
       >
-        <Text style={styles.buttonText}>PLAY NOW</Text>
+        <Text style={styles.buttonText}>🎮 PLAY CHESS</Text>
       </TouchableOpacity>
 
       <TouchableOpacity
@@ -355,7 +356,7 @@ export default function App() {
         onPress={() => setView('coach')}
         activeOpacity={0.8}
       >
-        <Text style={styles.buttonText}>ASK COACH</Text>
+        <Text style={styles.buttonText}>💭 ASK COACH</Text>
       </TouchableOpacity>
 
       <TouchableOpacity
