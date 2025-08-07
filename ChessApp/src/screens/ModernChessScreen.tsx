@@ -22,7 +22,7 @@ import { Chess } from 'chess.js';
 import { AnimatedChessBoard } from '../components/AnimatedChessBoard';
 import { FloatingActionButton } from '../components/FloatingActionButton';
 import { mistralChess } from '../services/mistralService';
-import { offlineStockfish } from '../services/offlineStockfishService';
+import { engine } from '../services/engine';
 import { premiumService } from '../services/premiumService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { theme } from '../styles/theme';
@@ -65,6 +65,19 @@ export const ModernChessScreen: React.FC = () => {
   const [hasAIAccess, setHasAIAccess] = useState(false);
   const [showAIChat, setShowAIChat] = useState(false);
   
+  // Time controls
+  const [timeControl, setTimeControl] = useState<{ minutes: number; increment: number }>({ minutes: 10, increment: 0 });
+  const [whiteTimeMs, setWhiteTimeMs] = useState(timeControl.minutes * 60 * 1000);
+  const [blackTimeMs, setBlackTimeMs] = useState(timeControl.minutes * 60 * 1000);
+  const timerRef = useRef<NodeJS.Timer | null>(null);
+  
+  // Mistake detection
+  const [mistakeDelta, setMistakeDelta] = useState<number | null>(null);
+  const [mistakeMoveSan, setMistakeMoveSan] = useState<string | null>(null);
+  const [showMistakeChip, setShowMistakeChip] = useState(false);
+  const [showExplainModal, setShowExplainModal] = useState(false);
+  const [explainText, setExplainText] = useState<string>('');
+  
   // Animations
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(50)).current;
@@ -94,6 +107,21 @@ export const ModernChessScreen: React.FC = () => {
     
     initializeEngines();
   }, []);
+
+  // Clock ticking
+  useEffect(() => {
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+    timerRef.current = setInterval(() => {
+      setWhiteTimeMs(prev => (gameState.turn === 'w' && !gameState.thinking ? Math.max(0, prev - 1000) : prev));
+      setBlackTimeMs(prev => (gameState.turn === 'b' && !gameState.thinking ? Math.max(0, prev - 1000) : prev));
+    }, 1000);
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, [gameState.turn, gameState.thinking]);
   
   const initializeEngines = async () => {
     try {
@@ -107,8 +135,8 @@ export const ModernChessScreen: React.FC = () => {
       });
       
       // Initialize engines
-      await offlineStockfish.initialize();
-      offlineStockfish.setStrength(engineStrength);
+      await engine.initialize();
+      engine.setStrength(engineStrength);
       
       // Initialize Mistral only if user has access
       if (premiumService.hasAIAccess()) {
@@ -122,6 +150,10 @@ export const ModernChessScreen: React.FC = () => {
   // Handle moves
   const handleMove = useCallback(async (from: string, to: string, promotion?: string) => {
     try {
+      // Evaluate before move for mistake detection
+      const prevFen = chess.fen();
+      const prevEval = showAnalysis ? await engine.evaluate(prevFen) : 0;
+
       const move = chess.move({ from, to, promotion: promotion || 'q' });
       if (!move) return false;
       
@@ -141,6 +173,13 @@ export const ModernChessScreen: React.FC = () => {
       setSelectedSquare(null);
       setLegalMoves([]);
       
+      // Add increment to side that just moved
+      if (playerColor === 'w') {
+        setWhiteTimeMs(t => t + timeControl.increment * 1000);
+      } else {
+        setBlackTimeMs(t => t + timeControl.increment * 1000);
+      }
+      
       // Pulse animation for move
       Animated.sequence([
         Animated.timing(pulseAnim, {
@@ -157,18 +196,29 @@ export const ModernChessScreen: React.FC = () => {
       
       // Get evaluation
       if (showAnalysis) {
-        const analysis = await offlineStockfish.analyze(newFen, 15);
+        const analysis = await engine.analyze(newFen, 15);
         setGameState(prev => ({
           ...prev,
           evaluation: analysis.evaluation,
           bestMove: analysis.bestMove,
           thinking: false,
         }));
+        // Mistake detection
+        const delta = prevEval - analysis.evaluation;
+        if (delta > 0.7) {
+          setMistakeDelta(delta);
+          setMistakeMoveSan(move.san);
+          setShowMistakeChip(true);
+        } else {
+          setShowMistakeChip(false);
+        }
+      } else {
+        setGameState(prev => ({ ...prev, thinking: false }));
       }
       
       // AI move if it's AI's turn
       if (chess.turn() !== playerColor) {
-        setTimeout(() => makeAIMove(newFen), 500);
+        setTimeout(() => makeAIMove(newFen), 400);
       }
       
       return true;
@@ -176,13 +226,16 @@ export const ModernChessScreen: React.FC = () => {
       console.error('Move error:', error);
       return false;
     }
-  }, [chess, gameState.history, playerColor, showAnalysis]);
+  }, [chess, gameState.history, playerColor, showAnalysis, timeControl]);
   
   const makeAIMove = async (fen: string) => {
     try {
-      const analysis = await offlineStockfish.getBestMove(fen, engineStrength);
-      if (analysis && analysis.from && analysis.to) {
-        handleMove(analysis.from, analysis.to);
+      const bestMoveUci = await engine.getBestMove(fen, { timeMs: 1000 });
+      if (bestMoveUci) {
+        const from = bestMoveUci.substring(0,2);
+        const to = bestMoveUci.substring(2,4);
+        // Add increment to AI after move completes (handled inside handleMove)
+        handleMove(from, to);
       }
     } catch (error) {
       console.error('AI move error:', error);
@@ -309,6 +362,46 @@ export const ModernChessScreen: React.FC = () => {
       </Animated.View>
     );
   };
+
+  const formatClock = (ms: number) => {
+    const total = Math.max(0, Math.floor(ms / 1000));
+    const m = Math.floor(total / 60).toString();
+    const s = (total % 60).toString().padStart(2, '0');
+    return `${m}:${s}`;
+  };
+
+  const changeTimeControl = (minutes: number, increment: number) => {
+    setTimeControl({ minutes, increment });
+    setWhiteTimeMs(minutes * 60 * 1000);
+    setBlackTimeMs(minutes * 60 * 1000);
+    // Reset game state
+    chess.reset();
+    setGameState({
+      fen: chess.fen(),
+      turn: 'w',
+      moveNumber: 1,
+      history: [],
+      evaluation: 0,
+      thinking: false,
+    });
+    setLastMove(undefined);
+  };
+
+  const renderHeaderClocks = () => (
+    <View style={styles.clocksRow}>
+      <TouchableOpacity onPress={() => changeTimeControl(3, 2)} style={[styles.tcButton, timeControl.minutes === 3 && timeControl.increment === 2 && styles.tcSelected]}>
+        <Text style={styles.tcText}>3+2</Text>
+      </TouchableOpacity>
+      <TouchableOpacity onPress={() => changeTimeControl(10, 0)} style={[styles.tcButton, timeControl.minutes === 10 && timeControl.increment === 0 && styles.tcSelected]}>
+        <Text style={styles.tcText}>10+0</Text>
+      </TouchableOpacity>
+      <TouchableOpacity onPress={() => changeTimeControl(15, 10)} style={[styles.tcButton, timeControl.minutes === 15 && timeControl.increment === 10 && styles.tcSelected]}>
+        <Text style={styles.tcText}>15+10</Text>
+      </TouchableOpacity>
+      <View style={styles.clockSpacer} />
+      <Text style={styles.clockText}>◻ {formatClock(whiteTimeMs)}  |  ◼ {formatClock(blackTimeMs)}</Text>
+    </View>
+  );
   
   return (
     <SafeAreaView style={styles.container}>
@@ -328,6 +421,7 @@ export const ModernChessScreen: React.FC = () => {
             </TouchableOpacity>
           )}
         </View>
+        {renderHeaderClocks()}
         <View style={styles.turnIndicator}>
           <View style={[
             styles.turnDot,
@@ -358,6 +452,26 @@ export const ModernChessScreen: React.FC = () => {
             <Text style={styles.thinkingText}>Analyzing...</Text>
           </View>
         )}
+
+        {showMistakeChip && mistakeDelta !== null && (
+          <View style={styles.mistakeChip}>
+            <Text style={styles.mistakeText}>That move lost {mistakeDelta.toFixed(1)} pawns.</Text>
+            <TouchableOpacity
+              style={styles.mistakeButton}
+              onPress={async () => {
+                try {
+                  setShowExplainModal(true);
+                  const text = await mistralChess.explainMove(gameState.fen, mistakeMoveSan || '', 1500);
+                  setExplainText(text.trim());
+                } catch (e) {
+                  setExplainText('Unable to explain right now.');
+                }
+              }}
+            >
+              <Text style={styles.mistakeButtonText}>Explain</Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </View>
       
       {renderMoveHistory()}
@@ -384,6 +498,25 @@ export const ModernChessScreen: React.FC = () => {
         isOpen={showAIChat}
         onClose={() => setShowAIChat(false)}
       />
+
+      <Modal
+        animationType="fade"
+        transparent
+        visible={showExplainModal}
+        onRequestClose={() => setShowExplainModal(false)}
+      >
+        <View style={styles.explainOverlay}>
+          <View style={styles.explainCard}>
+            <Text style={styles.explainTitle}>Coach Explanation</Text>
+            <ScrollView style={{ maxHeight: 220 }}>
+              <Text style={styles.explainBody}>{explainText}</Text>
+            </ScrollView>
+            <TouchableOpacity style={[styles.mistakeButton, { alignSelf: 'flex-end' }]} onPress={() => setShowExplainModal(false)}>
+              <Text style={styles.mistakeButtonText}>Close</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -516,5 +649,79 @@ const styles = StyleSheet.create({
     ...theme.typography.bodyMedium,
     color: theme.colors.text.primary,
     fontWeight: '500',
+  },
+  clocksRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: theme.spacing.sm,
+  },
+  tcButton: {
+    backgroundColor: theme.colors.surface.container,
+    paddingHorizontal: theme.spacing.sm,
+    paddingVertical: theme.spacing.xs,
+    borderRadius: theme.borderRadius.full,
+    marginRight: theme.spacing.sm,
+  },
+  tcSelected: {
+    backgroundColor: theme.colors.primary.main + '22',
+  },
+  tcText: {
+    ...theme.typography.labelSmall,
+    color: theme.colors.text.secondary,
+  },
+  clockSpacer: { flex: 1 },
+  clockText: {
+    ...theme.typography.labelMedium,
+    color: theme.colors.text.primary,
+  },
+  mistakeChip: {
+    position: 'absolute',
+    bottom: 12,
+    left: 12,
+    right: 12,
+    backgroundColor: theme.colors.error + '20',
+    borderRadius: theme.borderRadius.sm,
+    padding: theme.spacing.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  mistakeText: {
+    ...theme.typography.bodySmall,
+    color: theme.colors.error,
+  },
+  mistakeButton: {
+    backgroundColor: theme.colors.primary.main,
+    borderRadius: theme.borderRadius.full,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.xs,
+  },
+  mistakeButtonText: {
+    ...theme.typography.labelSmall,
+    color: theme.colors.primary.contrast,
+    fontWeight: 'bold',
+  },
+  explainOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.75)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: theme.spacing.lg,
+  },
+  explainCard: {
+    backgroundColor: theme.colors.surface.elevated,
+    borderRadius: theme.borderRadius.md,
+    padding: theme.spacing.lg,
+    width: '95%',
+    maxWidth: 520,
+  },
+  explainTitle: {
+    ...theme.typography.titleMedium,
+    color: theme.colors.text.primary,
+    marginBottom: theme.spacing.sm,
+  },
+  explainBody: {
+    ...theme.typography.bodyMedium,
+    color: theme.colors.text.secondary,
   },
 });

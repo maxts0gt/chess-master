@@ -29,6 +29,8 @@ class WebRTCService {
   private localStream: MediaStream | null = null;
   private callbacks: P2PCallbacks | null = null;
   private isInitiator = false;
+  private localIceCandidates: any[] = [];
+  private onLocalIce?: (cands: any[]) => void;
   
   // STUN servers for NAT traversal
   private readonly configuration = {
@@ -82,11 +84,17 @@ class WebRTCService {
     // ICE candidate handler
     this.peerConnection.onicecandidate = (event) => {
       if (event.candidate) {
+        const cand = event.candidate.toJSON();
+        this.localIceCandidates.push(cand);
+        this.onLocalIce?.(this.localIceCandidates.slice());
         // Send ICE candidate to remote peer via signaling
         this.sendSignalingMessage({
           type: 'ice-candidate',
-          data: event.candidate.toJSON(),
+          data: cand,
         });
+      } else {
+        // Gathering complete
+        this.onLocalIce?.(this.localIceCandidates.slice());
       }
     };
 
@@ -255,6 +263,47 @@ class WebRTCService {
     // Can use QR codes, NFC, or manual code exchange
     console.log('Signaling message to send:', message);
   }
+
+  /**
+   * Manual signaling helpers for offline code exchange
+   */
+  async createOfferPackage(): Promise<{ offer: any; iceCandidates: any[] }> {
+    if (!this.peerConnection) throw new Error('Peer connection not initialized');
+    const offer = await this.createOffer();
+    // Wait briefly to gather candidates
+    await new Promise(r => setTimeout(r, 1000));
+    return { offer: this.peerConnection.localDescription?.toJSON?.() || offer, iceCandidates: this.localIceCandidates.slice() };
+  }
+
+  async acceptOfferPackage(pkg: { offer: any; iceCandidates?: any[] }): Promise<{ answer: any; iceCandidates: any[] }> {
+    if (!this.peerConnection) throw new Error('Peer connection not initialized');
+    await this.setRemoteDescription(new RTCSessionDescription(pkg.offer));
+    if (pkg.iceCandidates && pkg.iceCandidates.length) {
+      for (const c of pkg.iceCandidates) {
+        await this.addIceCandidate(new RTCIceCandidate(c));
+      }
+    }
+    const answer = await this.createAnswer(new RTCSessionDescription(pkg.offer));
+    // Wait to gather our ICE
+    await new Promise(r => setTimeout(r, 1000));
+    return { answer: this.peerConnection.localDescription?.toJSON?.() || answer, iceCandidates: this.localIceCandidates.slice() };
+  }
+
+  async applyAnswerPackage(pkg: { answer: any; iceCandidates?: any[] }): Promise<void> {
+    if (!this.peerConnection) throw new Error('Peer connection not initialized');
+    await this.setRemoteDescription(new RTCSessionDescription(pkg.answer));
+    if (pkg.iceCandidates && pkg.iceCandidates.length) {
+      for (const c of pkg.iceCandidates) {
+        await this.addIceCandidate(new RTCIceCandidate(c));
+      }
+    }
+  }
+
+  onLocalIceCandidates(cb: (cands: any[]) => void) {
+    this.onLocalIce = cb;
+  }
+
+  getLocalIceCandidates(): any[] { return this.localIceCandidates.slice(); }
 
   /**
    * Get connection stats
