@@ -28,6 +28,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { theme } from '../styles/theme';
 import { PremiumScreen } from './PremiumScreen';
 import { AICoachChat } from '../components/AICoachChat';
+import { aiConfigService } from '../services/ai/AIConfigService';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
@@ -106,6 +107,9 @@ export const ModernChessScreen: React.FC = () => {
         useNativeDriver: true,
       }),
     ]).start();
+    
+    // Apply best AI defaults
+    aiConfigService.initialize().then(() => aiConfigService.applyBestProvider());
     
     initializeEngines();
   }, []);
