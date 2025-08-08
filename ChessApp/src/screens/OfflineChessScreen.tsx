@@ -192,8 +192,8 @@ export const OfflineChessScreen: React.FC = () => {
       ]);
       
       setCurrentAnalysis({
-        evaluation: stockfishEval,
         ...mistralAnalysis,
+        evaluation: stockfishEval,
       });
       
       // Update last move with evaluation
@@ -311,9 +311,10 @@ export const OfflineChessScreen: React.FC = () => {
           <Text style={styles.evaluationText}>
             Eval: {currentAnalysis.evaluation > 0 ? '+' : ''}{currentAnalysis.evaluation.toFixed(2)}
           </Text>
-          <Text style={styles.analysisText}>{currentAnalysis.evaluation}</Text>
+          {/* Detailed analysis text */}
+          <Text style={styles.analysisText}>{String(currentAnalysis.evaluation)}</Text>
           <ScrollView horizontal style={styles.bestMovesRow}>
-            {currentAnalysis.bestMoves.map((move, idx) => (
+            {currentAnalysis.bestMoves.map((move: string, idx: number) => (
               <TouchableOpacity key={idx} style={styles.moveChip}>
                 <Text style={styles.moveChipText}>{move}</Text>
               </TouchableOpacity>

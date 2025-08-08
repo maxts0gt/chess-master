@@ -681,6 +681,7 @@ const styles = StyleSheet.create({
   turnText: {
     ...theme.typography.bodyMedium,
     color: theme.colors.text.secondary,
+    fontWeight: '500'
   },
   evaluationContainer: {
     paddingHorizontal: theme.spacing.lg,
@@ -701,6 +702,7 @@ const styles = StyleSheet.create({
     color: theme.colors.text.secondary,
     marginTop: theme.spacing.xs,
     textAlign: 'center',
+    fontWeight: '400'
   },
   boardContainer: {
     flex: 1,
@@ -717,6 +719,7 @@ const styles = StyleSheet.create({
     ...theme.typography.bodyLarge,
     color: theme.colors.text.secondary,
     marginTop: theme.spacing.md,
+    fontWeight: '400'
   },
   historyContainer: {
     backgroundColor: theme.colors.surface.elevated,
@@ -724,10 +727,11 @@ const styles = StyleSheet.create({
     ...theme.elevation[1],
   },
   historyTitle: {
-    ...theme.typography.titleMedium,
+    ...(theme.typography.titleMedium as any),
     color: theme.colors.text.primary,
     paddingHorizontal: theme.spacing.lg,
     marginBottom: theme.spacing.sm,
+    fontWeight: '600'
   },
   historyScroll: {
     paddingHorizontal: theme.spacing.lg,
@@ -742,9 +746,10 @@ const styles = StyleSheet.create({
     marginRight: theme.spacing.sm,
   },
   moveNumber: {
-    ...theme.typography.labelSmall,
+    ...(theme.typography.labelSmall as any),
     color: theme.colors.text.secondary,
     marginRight: theme.spacing.xs,
+    fontWeight: '500'
   },
   moveText: {
     ...theme.typography.bodyMedium,
@@ -826,7 +831,10 @@ const styles = StyleSheet.create({
     fontWeight: '700'
   },
   explainBody: {
-    ...theme.typography.bodyMedium,
+    ...(theme.typography.bodyMedium as any),
     color: theme.colors.text.secondary,
+    fontWeight: '400'
   },
+  upgradeHeadline: { color: theme.colors.secondary.contrast, paddingHorizontal: theme.spacing.lg, marginBottom: theme.spacing.sm, fontSize: 16, lineHeight: 20, fontWeight: '600', letterSpacing: 0.2 },
+  upgradeBullet: { color: theme.colors.secondary.contrast, marginRight: theme.spacing.sm, fontSize: 14, lineHeight: 18, fontWeight: '500', letterSpacing: 0.2 },
 });

@@ -432,7 +432,7 @@ class PremiumService {
       this.state.isModelDownloaded = true;
       this.state.downloadProgress = 1;
       this.notifyListeners();
-      await mistralChess.initialize('mistral-3b-chess', modelPath);
+      await mistralChess.initialize('mistral-3b-chess');
       Alert.alert('✅ AI Coach Ready!', 'Your AI coach is ready to help you improve your chess!');
     } catch (error) {
       console.error('Failed to download AI model:', error);

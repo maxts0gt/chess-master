@@ -333,18 +333,18 @@ const styles = StyleSheet.create({
     marginBottom: theme.spacing.md,
   },
   personalityName: {
-    ...theme.typography.headlineMedium,
+    ...(theme.typography.headlineMedium as any),
     color: 'white',
-    fontWeight: 'bold',
+    fontWeight: '700',
     marginBottom: theme.spacing.xs,
   },
   personalityTitle: {
-    ...theme.typography.titleMedium,
+    ...(theme.typography.titleMedium as any),
     color: 'rgba(255, 255, 255, 0.9)',
     marginBottom: theme.spacing.lg,
   },
   description: {
-    ...theme.typography.bodyLarge,
+    ...(theme.typography.bodyLarge as any),
     color: 'white',
     textAlign: 'center',
     marginBottom: theme.spacing.lg,
@@ -363,7 +363,7 @@ const styles = StyleSheet.create({
     margin: theme.spacing.xs,
   },
   traitText: {
-    ...theme.typography.labelMedium,
+    ...(theme.typography.labelMedium as any),
     color: 'white',
     fontWeight: '600',
   },
@@ -372,12 +372,12 @@ const styles = StyleSheet.create({
     marginBottom: theme.spacing.xl,
   },
   teachingStyleLabel: {
-    ...theme.typography.labelLarge,
+    ...(theme.typography.labelLarge as any),
     color: 'rgba(255, 255, 255, 0.8)',
     marginBottom: theme.spacing.xs,
   },
   teachingStyle: {
-    ...theme.typography.bodyMedium,
+    ...(theme.typography.bodyMedium as any),
     color: 'white',
     textAlign: 'center',
     paddingHorizontal: theme.spacing.lg,
@@ -393,9 +393,9 @@ const styles = StyleSheet.create({
     backgroundColor: 'white',
   },
   selectButtonText: {
-    ...theme.typography.titleMedium,
+    ...(theme.typography.titleMedium as any),
     color: theme.colors.primary.main,
-    fontWeight: 'bold',
+    fontWeight: '700',
     textAlign: 'center',
   },
   pagination: {
@@ -417,7 +417,7 @@ const styles = StyleSheet.create({
     padding: theme.spacing.md,
   },
   closeButtonText: {
-    ...theme.typography.labelLarge,
+    ...(theme.typography.labelLarge as any),
     color: theme.colors.text.secondary,
     fontWeight: '500'
   },

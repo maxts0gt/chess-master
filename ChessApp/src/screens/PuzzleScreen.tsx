@@ -71,15 +71,15 @@ export const PuzzleScreen: React.FC = () => {
   const progressAnim = useRef(new Animated.Value(1)).current;
   
   // Timer for puzzle rush
-  const rushTimer = useRef<NodeJS.Timeout | null>(null);
-  const puzzleTimer = useRef<NodeJS.Timeout | null>(null);
+  const rushTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+  const puzzleTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   
   useEffect(() => {
     initializePuzzles();
     
     return () => {
-      if (rushTimer.current) clearInterval(rushTimer.current);
-      if (puzzleTimer.current) clearInterval(puzzleTimer.current);
+      if (rushTimer.current) clearInterval(rushTimer.current as any as number);
+      if (puzzleTimer.current) clearInterval(puzzleTimer.current as any as number);
     };
   }, []);
   
@@ -96,7 +96,7 @@ export const PuzzleScreen: React.FC = () => {
         }));
       }, 1000);
     } else if (rushTimer.current) {
-      clearInterval(rushTimer.current);
+      clearInterval(rushTimer.current as any as number);
     }
     
     // Update time elapsed for current puzzle
@@ -108,12 +108,12 @@ export const PuzzleScreen: React.FC = () => {
         }));
       }, 100);
     } else if (puzzleTimer.current) {
-      clearInterval(puzzleTimer.current);
+      clearInterval(puzzleTimer.current as any as number);
     }
     
     return () => {
-      if (rushTimer.current) clearInterval(rushTimer.current);
-      if (puzzleTimer.current) clearInterval(puzzleTimer.current);
+      if (rushTimer.current) clearInterval(rushTimer.current as any as number);
+      if (puzzleTimer.current) clearInterval(puzzleTimer.current as any as number);
     };
   }, [state.mode, state.currentPuzzle, state.startTime, state.rushStats.timeRemaining]);
   
@@ -547,6 +547,7 @@ const styles = StyleSheet.create({
     ...theme.typography.bodyLarge,
     color: theme.colors.text.secondary,
     marginTop: theme.spacing.md,
+    fontWeight: '400'
   },
   modeSelector: {
     paddingHorizontal: theme.spacing.lg,
@@ -571,7 +572,7 @@ const styles = StyleSheet.create({
     marginRight: theme.spacing.sm,
   },
   modeLabel: {
-    ...theme.typography.labelLarge,
+    ...(theme.typography.labelLarge as any),
     color: theme.colors.text.primary,
   },
   puzzleInfo: {
@@ -587,7 +588,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   ratingLabel: {
-    ...theme.typography.labelSmall,
+    ...(theme.typography.labelSmall as any),
     color: theme.colors.text.secondary,
   },
   ratingValue: {
@@ -599,7 +600,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   timerLabel: {
-    ...theme.typography.labelSmall,
+    ...(theme.typography.labelSmall as any),
     color: theme.colors.text.secondary,
   },
   timerValue: {
@@ -614,7 +615,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   statsLabel: {
-    ...theme.typography.titleMedium,
+    ...(theme.typography.titleMedium as any),
     color: theme.colors.text.primary,
   },
   themes: {
@@ -630,7 +631,7 @@ const styles = StyleSheet.create({
     marginBottom: theme.spacing.xs,
   },
   themeText: {
-    ...theme.typography.labelSmall,
+    ...(theme.typography.labelSmall as any),
     color: theme.colors.primary.main,
     textTransform: 'capitalize',
   },
@@ -647,7 +648,7 @@ const styles = StyleSheet.create({
     marginBottom: theme.spacing.md,
   },
   hintText: {
-    ...theme.typography.bodyMedium,
+    ...(theme.typography.bodyMedium as any),
     color: theme.colors.info,
   },
   controls: {
@@ -667,7 +668,7 @@ const styles = StyleSheet.create({
     marginBottom: theme.spacing.xs,
   },
   controlLabel: {
-    ...theme.typography.labelMedium,
+    ...(theme.typography.labelMedium as any),
     color: theme.colors.text.secondary,
   },
   hintButton: {},
@@ -687,7 +688,7 @@ const styles = StyleSheet.create({
     ...theme.elevation[4],
   },
   rushResultTitle: {
-    ...theme.typography.headlineMedium,
+    ...(theme.typography.headlineMedium as any),
     color: theme.colors.text.primary,
     marginBottom: theme.spacing.md,
   },
@@ -698,9 +699,10 @@ const styles = StyleSheet.create({
     marginBottom: theme.spacing.sm,
   },
   rushResultStreak: {
-    ...theme.typography.titleLarge,
+    ...(theme.typography.titleLarge as any),
     color: theme.colors.text.secondary,
     marginBottom: theme.spacing.lg,
+    fontWeight: '400'
   },
   rushPlayAgain: {
     backgroundColor: theme.colors.primary.main,
@@ -709,12 +711,15 @@ const styles = StyleSheet.create({
     borderRadius: theme.borderRadius.full,
   },
   rushPlayAgainText: {
-    ...theme.typography.labelLarge,
+    ...(theme.typography.labelLarge as any),
     color: theme.colors.primary.contrast,
-    fontWeight: 'bold',
+    fontWeight: '600'
   },
   headerTitle: { color: theme.colors.text.primary, fontSize: 18, lineHeight: 22, fontWeight: '700' },
   scoreText: { color: theme.colors.text.primary, fontSize: 16, lineHeight: 20, fontWeight: '700' },
   resultTitle: { color: theme.colors.text.primary, fontSize: 18, lineHeight: 22, fontWeight: '700' },
   resultValue: { color: theme.colors.text.primary, fontSize: 22, lineHeight: 26, fontWeight: '700' },
+  hintButtonText: { color: theme.colors.text.primary, fontSize: 14, lineHeight: 18, fontWeight: '500', letterSpacing: 0.2 },
+  resetButtonText: { color: theme.colors.text.primary, fontSize: 14, lineHeight: 18, fontWeight: '500', letterSpacing: 0.2 },
+  skipButtonText: { color: theme.colors.text.primary, fontSize: 14, lineHeight: 18, fontWeight: '500', letterSpacing: 0.2 },
 });

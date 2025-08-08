@@ -25,7 +25,7 @@ export interface P2PCallbacks {
 
 class WebRTCService {
   private peerConnection: RTCPeerConnection | null = null;
-  private dataChannel: RTCDataChannel | null = null;
+  private dataChannel: any | null = null;
   private localStream: MediaStream | null = null;
   private callbacks: P2PCallbacks | null = null;
   private isInitiator = false;

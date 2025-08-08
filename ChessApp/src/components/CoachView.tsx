@@ -74,10 +74,8 @@ export const CoachView: React.FC<CoachViewProps> = ({ fen, lastMove, onBack }) =
     }
     
     try {
-      // Get personalized coaching based on player level
-      const personalizedTip = await adaptiveAI.getPersonalizedTip(fen, lastMove);
-      
-      // Stream with typewriter effect
+      const tips = await adaptiveAI.getPersonalizedCoaching(fen, lastMove || null);
+      const personalizedTip = tips.join(' ');
       const words = personalizedTip.split(' ');
       for (const word of words) {
         setExplanation(prev => prev + word + ' ');

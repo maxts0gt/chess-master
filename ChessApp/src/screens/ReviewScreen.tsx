@@ -47,8 +47,8 @@ export const ReviewScreen: React.FC<ReviewScreenProps> = ({ review, onDrill, onC
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: theme.colors.background.default },
   header: { padding: theme.spacing.lg, backgroundColor: theme.colors.surface.elevated },
-  title: { ...theme.typography.titleLarge, color: theme.colors.text.primary },
-  subtitle: { ...theme.typography.bodySmall, color: theme.colors.text.secondary, marginTop: 4 },
+  title: { ...(theme.typography.titleLarge as any), color: theme.colors.text.primary },
+  subtitle: { ...(theme.typography.bodySmall as any), color: theme.colors.text.secondary, marginTop: 4 },
   scroll: { flex: 1 },
   moveRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8 },
   worstRow: { backgroundColor: theme.colors.error + '10', borderRadius: 8 },

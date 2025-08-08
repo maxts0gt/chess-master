@@ -451,7 +451,7 @@ const styles = StyleSheet.create({
     marginBottom: theme.spacing.lg,
   },
   downloadStat: {
-    ...theme.typography.bodyMedium,
+    ...(theme.typography.bodyMedium as any),
     color: theme.colors.text.secondary,
     marginHorizontal: theme.spacing.sm,
   },
