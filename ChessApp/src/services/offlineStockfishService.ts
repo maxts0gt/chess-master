@@ -210,7 +210,7 @@ class OfflineStockfishService {
   }
 
   private sendCommand(command: string): void {
-    if (this.engine) {
+    if (this.engine && (this.engine as any).postMessage) {
       this.engine.postMessage(command);
     }
   }

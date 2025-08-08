@@ -10,7 +10,7 @@ import {
   requestPurchase,
   getAvailablePurchases,
   finishTransaction,
-  Purchase,
+  Purchase as AnyPurchase,
   Product,
   PurchaseError,
 } from 'react-native-iap';
@@ -203,8 +203,9 @@ class PremiumService {
       });
 
       // Verify and finish transaction
-      if (purchase) {
-        await finishTransaction({ purchase, isConsumable: false });
+      const normalized = Array.isArray(purchase) ? purchase[0] : purchase;
+      if (normalized) {
+        await finishTransaction({ purchase: normalized as AnyPurchase, isConsumable: false });
         
         // Update state
         this.state.hasAICoach = true;

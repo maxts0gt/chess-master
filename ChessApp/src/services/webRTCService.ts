@@ -82,7 +82,7 @@ class WebRTCService {
     if (!this.peerConnection) return;
 
     // ICE candidate handler
-    this.peerConnection.onicecandidate = (event) => {
+    (this.peerConnection as any).onicecandidate = (event: any) => {
       if (event.candidate) {
         const cand = event.candidate.toJSON();
         this.localIceCandidates.push(cand);
@@ -99,8 +99,8 @@ class WebRTCService {
     };
 
     // Connection state handler
-    this.peerConnection.onconnectionstatechange = () => {
-      const state = this.peerConnection?.connectionState || 'unknown';
+    (this.peerConnection as any).onconnectionstatechange = () => {
+      const state = (this.peerConnection as any)?.connectionState || 'unknown';
       console.log('Connection state:', state);
       
       this.callbacks?.onConnectionStateChange(state);
@@ -111,7 +111,7 @@ class WebRTCService {
     };
 
     // Data channel handler (for receiver)
-    this.peerConnection.ondatachannel = (event) => {
+    (this.peerConnection as any).ondatachannel = (event: any) => {
       console.log('Data channel received');
       this.dataChannel = event.channel;
       this.setupDataChannelHandlers();

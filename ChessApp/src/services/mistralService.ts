@@ -77,7 +77,7 @@ class MistralChessService {
       });
 
       // Create context with chess-optimized parameters
-      this.context = await LlamaContext.create({
+      this.context = await (LlamaContext as any).create({
         n_ctx: config.contextSize,
         n_threads: config.threads,
         temp: config.temperature,

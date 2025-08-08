@@ -10,7 +10,7 @@ import {
   requestPurchase,
   getAvailablePurchases,
   finishTransaction,
-  Purchase,
+  Purchase as AnyPurchase,
   Product,
   PurchaseError,
 } from 'react-native-iap';
@@ -149,7 +149,7 @@ class PurchaseService {
   /**
    * Handle successful purchase
    */
-  private async handlePurchase(purchase: Purchase): Promise<void> {
+  private async handlePurchase(purchase: AnyPurchase): Promise<void> {
     try {
       // Finish transaction
       await finishTransaction({ 
