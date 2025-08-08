@@ -31,6 +31,7 @@ interface AnimatedChessBoardProps {
   legalMoves?: string[];
   isPlayerTurn: boolean;
   bestLineUci?: string[]; // e.g., ['e2e4','e7e5','g1f3']
+  threatSquares?: string[]; // squares to draw heat/dots on
 }
 
 interface PiecePosition {
@@ -54,6 +55,7 @@ export const AnimatedChessBoard: React.FC<AnimatedChessBoardProps> = ({
   legalMoves = [],
   isPlayerTurn,
   bestLineUci = [],
+  threatSquares = [],
 }) => {
   const [pieces, setPieces] = useState<PiecePosition[]>([]);
   const [draggingPiece, setDraggingPiece] = useState<string | null>(null);
@@ -290,7 +292,7 @@ export const AnimatedChessBoard: React.FC<AnimatedChessBoardProps> = ({
   const renderArrows = () => {
     if (!bestLineUci || bestLineUci.length === 0) return null;
     const arrows = [] as JSX.Element[];
-    for (let i = 0; i < bestLineUci.length; i++) {
+    for (let i = 0; i < Math.min(3, bestLineUci.length); i++) {
       const uci = bestLineUci[i];
       const from = uci.substring(0, 2);
       const to = uci.substring(2, 4);
@@ -306,7 +308,6 @@ export const AnimatedChessBoard: React.FC<AnimatedChessBoardProps> = ({
           strokeLinecap="round"
         />
       );
-      // Destination dot
       arrows.push(
         <Circle key={`dot-${uci}-${i}`} cx={x2} cy={y2} r={8 - Math.min(6, i * 2)} fill={color} />
       );
@@ -314,6 +315,19 @@ export const AnimatedChessBoard: React.FC<AnimatedChessBoardProps> = ({
     return (
       <Svg style={StyleSheet.absoluteFill} width={BOARD_SIZE} height={BOARD_SIZE}>
         {arrows}
+      </Svg>
+    );
+  };
+
+  const renderThreats = () => {
+    if (!threatSquares || threatSquares.length === 0) return null;
+    const dots = threatSquares.map((sq, idx) => {
+      const { x, y } = squareCenter(sq);
+      return <Circle key={`threat-${sq}-${idx}`} cx={x} cy={y} r={6} fill={'rgba(244, 67, 54, 0.5)'} />;
+    });
+    return (
+      <Svg style={StyleSheet.absoluteFill} width={BOARD_SIZE} height={BOARD_SIZE}>
+        {dots}
       </Svg>
     );
   };
@@ -343,6 +357,9 @@ export const AnimatedChessBoard: React.FC<AnimatedChessBoardProps> = ({
 
         {/* Best line arrows */}
         {renderArrows()}
+
+        {/* Threat heatmap */}
+        {renderThreats()}
       </View>
     </Animated.View>
   );

@@ -239,6 +239,10 @@ export const PresidentialGameView: React.FC<PresidentialGameViewProps> = ({
                   <Text style={styles.modalButtonText}>Close</Text>
                 </TouchableOpacity>
               </View>
+              {/* Future: Add QR Scanner button */}
+              {/* <TouchableOpacity style={[styles.modalButton, { marginTop: 8 }]} onPress={() => setScannerOpen(true)}>
+                <Text style={styles.modalButtonText}>Scan Remote QR</Text>
+              </TouchableOpacity> */}
             </View>
           </View>
         </Modal>

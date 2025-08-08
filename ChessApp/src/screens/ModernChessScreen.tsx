@@ -64,6 +64,8 @@ export const ModernChessScreen: React.FC = () => {
   const [showPremium, setShowPremium] = useState(false);
   const [hasAIAccess, setHasAIAccess] = useState(false);
   const [showAIChat, setShowAIChat] = useState(false);
+  const [bestLineUci, setBestLineUci] = useState<string[]>([]);
+  const [threatSquares, setThreatSquares] = useState<string[]>([]);
   
   // Time controls
   const [timeControl, setTimeControl] = useState<{ minutes: number; increment: number }>({ minutes: 10, increment: 0 });
@@ -197,6 +199,20 @@ export const ModernChessScreen: React.FC = () => {
       // Get evaluation
       if (showAnalysis) {
         const analysis = await engine.analyze(newFen, 15);
+        // Fetch top 3 moves for arrows
+        try {
+          const top = await engine.getTopMoves(newFen, 3, 16);
+          setBestLineUci(top.map(t => t.move));
+          // Derive threat squares crudely from first PV line
+          if (top[0]?.line?.length) {
+            const nextUci = top[0].line[0];
+            setThreatSquares([nextUci.substring(2,4)]);
+          } else {
+            setThreatSquares([]);
+          }
+        } catch {
+          setBestLineUci([analysis.bestMove].filter(Boolean));
+        }
         setGameState(prev => ({
           ...prev,
           evaluation: analysis.evaluation,
@@ -444,7 +460,8 @@ export const ModernChessScreen: React.FC = () => {
           legalMoves={legalMoves}
           lastMove={lastMove}
           isPlayerTurn={gameState.turn === playerColor}
-          bestLineUci={gameState.bestMove ? [gameState.bestMove] : []}
+          bestLineUci={bestLineUci}
+          threatSquares={threatSquares}
         />
         
         {gameState.thinking && (
