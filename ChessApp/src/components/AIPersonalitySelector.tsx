@@ -292,11 +292,7 @@ const styles = StyleSheet.create({
     marginBottom: theme.spacing.xl,
     paddingHorizontal: theme.spacing.xl,
   },
-  title: {
-    ...theme.typography.headlineLarge,
-    color: theme.colors.text.primary,
-    marginBottom: theme.spacing.sm,
-  },
+  title: { ...theme.typography.titleLarge, color: theme.colors.text.primary, fontWeight: '700' },
   subtitle: {
     ...theme.typography.bodyLarge,
     color: '#aaa',

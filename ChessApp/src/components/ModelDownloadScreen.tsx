@@ -407,7 +407,7 @@ const styles = StyleSheet.create({
   downloadButtonText: {
     ...theme.typography.titleMedium,
     color: 'white',
-    fontWeight: 'bold',
+    fontWeight: '700',
   },
   skipButton: {
     padding: theme.spacing.md,

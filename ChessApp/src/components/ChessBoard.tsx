@@ -123,7 +123,7 @@ const ChessBoard: React.FC<ChessBoardProps> = ({
 
   const renderSquare = (row: number, col: number) => {
     const square = indicesToSquare(row, col);
-    const piece = game.get(square);
+    const piece = game.get(square as Square);
     const highlight = getSquareHighlight(square);
 
     return (
@@ -198,7 +198,7 @@ const styles = StyleSheet.create({
   },
   piece: {
     color: '#000',
-    fontWeight: 'bold',
+    fontWeight: '700',
   },
   fileLabel: {
     position: 'absolute',
