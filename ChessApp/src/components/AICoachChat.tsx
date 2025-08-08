@@ -155,8 +155,9 @@ export const AICoachChat: React.FC<AICoachChatProps> = ({
     hapticService.uiFeedback();
 
     // Add typing indicator
+    const typingId = `typing-${Date.now()}`;
     const typingMessage: Message = {
-      id: `typing-${Date.now()}`,
+      id: typingId,
       text: '',
       sender: 'ai',
       timestamp: new Date(),
@@ -167,38 +168,29 @@ export const AICoachChat: React.FC<AICoachChatProps> = ({
     try {
       // Get AI response with context
       const context = `Current position: ${fen}${lastMove ? `\nLast move: ${lastMove}` : ''}`;
-      const chunks: string[] = [];
+      let aggregated = '';
       for await (const token of coachFacade.askQuestionStream(context, text)) {
-        chunks.push(token);
+        aggregated += token;
+        setMessages(prev => prev.map(m => m.id === typingId ? { ...m, text: aggregated } : m));
       }
-      const response = chunks.join('');
 
-      // Remove typing indicator and add response
+      // Haptic + voice on completion
       setMessages(prev => {
-        const filtered = prev.filter(m => !m.typing);
-        const aiMessage: Message = {
-          id: Date.now().toString(),
-          text: response,
-          sender: 'ai',
-          timestamp: new Date(),
-        };
-        
-        // Voice feedback for AI response
-        if (voiceService.isEnabled()) {
-          // Get current AI personality
-          const personality = await AsyncStorage.getItem('@ChessApp:AIPersonality') || 'coach';
-          voiceService.speak(response, personality);
+        const finalized = prev.map(m => m.id === typingId ? { ...m, typing: false } : m);
+        const aiMessage = finalized.find(m => m.id === typingId);
+        if (aiMessage && voiceService.isEnabled()) {
+          (async () => {
+            const personality = await AsyncStorage.getItem('@ChessApp:AIPersonality') || 'coach';
+            voiceService.speak(aiMessage.text, personality);
+          })();
         }
-        
-        // Haptic feedback for AI response
         hapticService.aiFeedback();
-        
-        return [...filtered, aiMessage];
+        return finalized;
       });
     } catch (error) {
       console.error('AI response error:', error);
       setMessages(prev => {
-        const filtered = prev.filter(m => !m.typing);
+        const filtered = prev.filter(m => m.id !== typingId);
         const errorMessage: Message = {
           id: Date.now().toString(),
           text: "I'm having trouble analyzing this position. Please try again.",
