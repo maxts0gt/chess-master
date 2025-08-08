@@ -15,6 +15,8 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
+// @ts-ignore
+const LG: any = LinearGradient as any;
 import NetInfo from '@react-native-community/netinfo';
 import { premiumService } from '../services/premiumService';
 import { theme } from '../styles/theme';
@@ -277,7 +279,7 @@ export const ModelDownloadScreen: React.FC<ModelDownloadScreenProps> = ({
           onPress={handleDownload}
           disabled={!isConnected}
         >
-          <LinearGradient
+          <LG
             colors={
               !isConnected 
                 ? ['#999', '#666'] 
@@ -297,7 +299,7 @@ export const ModelDownloadScreen: React.FC<ModelDownloadScreenProps> = ({
                 : 'Download on WiFi'
               }
             </Text>
-          </LinearGradient>
+          </LG>
         </TouchableOpacity>
         
         <TouchableOpacity style={styles.skipButton} onPress={onSkip}>

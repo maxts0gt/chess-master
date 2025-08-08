@@ -6,14 +6,8 @@ declare module 'react-native-sha256';
 declare module 'stockfish.wasm';
 declare module 'react-native-libsignal-protocol';
 declare module 'react-native-randombytes';
+declare module 'react-native-linear-gradient';
 declare module 'expo-haptics';
-
-// Relax RN TextStyle typing for fontWeight numeric strings
-declare module 'react-native' {
-  interface TextStyle {
-    fontWeight?: 'normal' | 'bold' | '100' | '200' | '300' | '400' | '500' | '600' | '700' | '800' | '900' | string | undefined;
-  }
-}
 
 declare type Worker = any;
 declare var Worker: any;

@@ -140,6 +140,9 @@ export const AIPersonalitySelector: React.FC<AIPersonalitySelectorProps> = ({
   const cardWidth = screenWidth * 0.8;
   const cardMargin = 20;
 
+  // @ts-ignore
+  const LG: any = LinearGradient as any;
+
   return (
     <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
       <View style={styles.header}>
@@ -193,7 +196,7 @@ export const AIPersonalitySelector: React.FC<AIPersonalitySelectorProps> = ({
                 },
               ]}
             >
-              <LinearGradient
+              <LG
                 colors={personality.gradient}
                 style={styles.cardGradient}
                 start={{ x: 0, y: 0 }}
@@ -230,7 +233,7 @@ export const AIPersonalitySelector: React.FC<AIPersonalitySelectorProps> = ({
                     </Text>
                   </TouchableOpacity>
                 </View>
-              </LinearGradient>
+              </LG>
             </Animated.View>
           );
         })}
