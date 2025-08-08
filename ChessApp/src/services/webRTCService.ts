@@ -138,16 +138,16 @@ class WebRTCService {
   private setupDataChannelHandlers(): void {
     if (!this.dataChannel) return;
 
-    this.dataChannel.onopen = () => {
+    (this.dataChannel as any).onopen = () => {
       console.log('Data channel opened');
       this.sendMessage(JSON.stringify({ type: 'ready' }));
     };
 
-    this.dataChannel.onclose = () => {
+    (this.dataChannel as any).onclose = () => {
       console.log('Data channel closed');
     };
 
-    this.dataChannel.onmessage = (event) => {
+    (this.dataChannel as any).onmessage = (event: any) => {
       try {
         const message = event.data;
         this.callbacks?.onMessage(message);
@@ -156,9 +156,10 @@ class WebRTCService {
       }
     };
 
-    this.dataChannel.onerror = (error) => {
+    (this.dataChannel as any).onerror = (error: any) => {
       console.error('Data channel error:', error);
-      this.callbacks?.onError(error as Error);
+      const err = error instanceof Error ? error : new Error('Data channel error');
+      this.callbacks?.onError(err);
     };
   }
 
@@ -315,7 +316,7 @@ class WebRTCService {
       const stats = await this.peerConnection.getStats();
       const statsArray: any[] = [];
       
-      stats.forEach((stat) => {
+      (stats as any).forEach((stat: any) => {
         statsArray.push(stat);
       });
       

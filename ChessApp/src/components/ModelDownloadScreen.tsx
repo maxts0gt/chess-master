@@ -418,6 +418,7 @@ const styles = StyleSheet.create({
   skipButtonText: {
     ...theme.typography.labelLarge,
     color: theme.colors.text.secondary,
+    fontWeight: '500'
   },
   downloadingContainer: {
     alignItems: 'center',

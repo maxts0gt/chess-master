@@ -419,5 +419,6 @@ const styles = StyleSheet.create({
   closeButtonText: {
     ...theme.typography.labelLarge,
     color: theme.colors.text.secondary,
+    fontWeight: '500'
   },
 });

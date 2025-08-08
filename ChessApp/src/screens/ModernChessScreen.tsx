@@ -769,11 +769,13 @@ const styles = StyleSheet.create({
   tcText: {
     ...theme.typography.labelSmall,
     color: theme.colors.text.secondary,
+    fontWeight: '500'
   },
   clockSpacer: { flex: 1 },
   clockText: {
     ...theme.typography.labelMedium,
     color: theme.colors.text.primary,
+    fontWeight: '600'
   },
   mistakeChip: {
     position: 'absolute',
@@ -790,6 +792,7 @@ const styles = StyleSheet.create({
   mistakeText: {
     ...theme.typography.bodySmall,
     color: theme.colors.error,
+    fontWeight: '500'
   },
   mistakeButton: {
     backgroundColor: theme.colors.primary.main,

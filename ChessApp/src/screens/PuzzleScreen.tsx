@@ -593,7 +593,7 @@ const styles = StyleSheet.create({
   ratingValue: {
     ...theme.typography.headlineSmall,
     color: theme.colors.text.primary,
-    fontWeight: 'bold',
+    fontWeight: '700',
   },
   rushTimer: {
     alignItems: 'center',
@@ -605,7 +605,7 @@ const styles = StyleSheet.create({
   timerValue: {
     ...theme.typography.headlineSmall,
     color: theme.colors.text.primary,
-    fontWeight: 'bold',
+    fontWeight: '700',
   },
   timerCritical: {
     color: theme.colors.error,
@@ -694,7 +694,7 @@ const styles = StyleSheet.create({
   rushResultScore: {
     ...theme.typography.displaySmall,
     color: theme.colors.primary.main,
-    fontWeight: 'bold',
+    fontWeight: '700',
     marginBottom: theme.spacing.sm,
   },
   rushResultStreak: {

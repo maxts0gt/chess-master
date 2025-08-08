@@ -294,11 +294,14 @@ export const OfflineChessScreen: React.FC = () => {
       <Animated.View style={[styles.boardContainer, { opacity: fadeAnim }]}>
         <ChessBoard
           fen={fen}
-          onSquarePress={handleSquarePress}
-          selectedSquare={selectedSquare}
-          legalMoves={legalMoves}
-          lastMove={moves[moves.length - 1]}
-          flipped={false}
+          onMove={(move: any) => {
+            // assuming move contains from/to
+            if (move && move.from && move.to) {
+              makeMove(move.from, move.to);
+            }
+          }}
+          playable={true}
+          showCoordinates={true}
         />
       </Animated.View>
 

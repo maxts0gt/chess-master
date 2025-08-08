@@ -413,10 +413,12 @@ const styles = StyleSheet.create({
   headerTitle: {
     ...theme.typography.titleLarge,
     color: theme.colors.text.primary,
+    fontWeight: '700'
   },
   headerSubtitle: {
     ...theme.typography.bodySmall,
     color: theme.colors.text.secondary,
+    fontWeight: '400'
   },
   closeButton: {
     padding: theme.spacing.sm,
@@ -453,6 +455,7 @@ const styles = StyleSheet.create({
   messageText: {
     ...theme.typography.bodyMedium,
     color: theme.colors.text.primary,
+    fontWeight: '400'
   },
   userMessageText: {
     color: theme.colors.primary.contrast,
@@ -461,6 +464,7 @@ const styles = StyleSheet.create({
     ...theme.typography.labelSmall,
     color: theme.colors.text.hint,
     marginTop: theme.spacing.xs,
+    fontWeight: '400'
   },
   typingIndicator: {
     flexDirection: 'row',
@@ -499,6 +503,7 @@ const styles = StyleSheet.create({
   quickPromptText: {
     ...theme.typography.labelMedium,
     color: theme.colors.text.primary,
+    fontWeight: '500'
   },
   inputContainer: {
     flexDirection: 'row',
@@ -518,6 +523,7 @@ const styles = StyleSheet.create({
     maxHeight: 100,
     ...theme.typography.bodyMedium,
     color: theme.colors.text.primary,
+    fontWeight: '400'
   },
   sendButton: {
     width: 40,
@@ -550,6 +556,7 @@ const styles = StyleSheet.create({
     color: theme.colors.text.secondary,
     textAlign: 'center',
     marginBottom: theme.spacing.lg,
+    fontWeight: '400'
   },
   upgradeButton: {
     backgroundColor: theme.colors.primary.main,

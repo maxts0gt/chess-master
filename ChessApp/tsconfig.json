@@ -1,9 +1,9 @@
 {
   "extends": "@tsconfig/react-native/tsconfig.json",
   "compilerOptions": {
-    "target": "es2018",
+    "target": "es2019",
     "module": "commonjs",
-    "lib": ["es2018", "dom", "dom.iterable", "dom.asynciterable"],
+    "lib": ["es2019", "dom", "es2018.asyncgenerator", "es2018.asynciterable", "dom.iterable"],
     "allowJs": true,
     "jsx": "react-native",
     "noEmit": true,

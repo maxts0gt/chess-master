@@ -415,7 +415,7 @@ class PremiumService {
       // Verify checksum
       if (target.sha256 && target.sha256.length > 10) {
         try {
-          const fileHash = (RNFS as any).hash ? await (RNFS as any).hash(modelPath, 'sha256') : await sha256(await RNFS.readFile(modelPath, 'base64'));
+          const fileHash = await (RNFS as any).hash ? await (RNFS as any).hash(modelPath) : '';
           if (fileHash.toLowerCase() !== target.sha256.toLowerCase()) {
             await RNFS.unlink(modelPath);
             throw new Error('Checksum mismatch');

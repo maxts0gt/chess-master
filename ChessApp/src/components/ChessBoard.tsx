@@ -125,6 +125,7 @@ const ChessBoard: React.FC<ChessBoardProps> = ({
     const square = indicesToSquare(row, col);
     const piece = game.get(square as Square);
     const highlight = getSquareHighlight(square);
+    const highlightStyle = highlight ? { backgroundColor: highlight } : undefined;
 
     return (
       <TouchableOpacity
@@ -136,7 +137,7 @@ const ChessBoard: React.FC<ChessBoardProps> = ({
             width: squareSize,
             height: squareSize,
           },
-          highlight && { backgroundColor: highlight },
+          highlightStyle,
         ]}
         onPress={() => handleSquarePress(square)}
         activeOpacity={0.8}

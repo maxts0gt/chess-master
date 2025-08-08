@@ -30,7 +30,7 @@ interface OnboardingSlide {
   gradient: string[];
 }
 
-const SLIDES: OnboardingSlide[] = [
+const buildSlides = (): OnboardingSlide[] => [
   {
     id: 'welcome',
     icon: '♔',
@@ -169,7 +169,8 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete }
   };
 
   const handleNext = () => {
-    if (currentSlide < SLIDES.length - 1) {
+    const slides = buildSlides();
+    if (currentSlide < slides.length - 1) {
       animateSlideChange(currentSlide + 1);
     }
   };
@@ -200,9 +201,10 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete }
   };
 
   const renderDots = () => {
+    const slides = buildSlides();
     return (
       <View style={styles.dotsContainer}>
-        {SLIDES.map((_, index) => {
+        {slides.map((_: any, index: number) => {
           const inputRange = [(index - 1) * screenWidth, index * screenWidth, (index + 1) * screenWidth];
           
           const dotWidth = scrollX.interpolate({
@@ -235,8 +237,9 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete }
     );
   };
 
-  const currentSlideData = SLIDES[currentSlide];
-  const isLastSlide = currentSlide === SLIDES.length - 1;
+  const slides = buildSlides();
+  const currentSlideData = slides[currentSlide];
+  const isLastSlide = currentSlide === slides.length - 1;
 
   return (
     <LinearGradient
@@ -393,24 +396,12 @@ const styles = StyleSheet.create({
     borderRadius: 15,
     minWidth: 120,
   },
-  comparisonTitle: {
-    color: '#FFF',
-    fontSize: 14,
-    marginBottom: 10,
-  },
-  comparisonPrice: {
-    color: '#FFF',
-    fontSize: 22,
-    fontWeight: '700',
-  },
+  comparisonTitle: { color: '#fff', fontSize: 16, lineHeight: 20, fontWeight: '700' },
+  comparisonPrice: { color: '#fff', fontSize: 18, lineHeight: 22, fontWeight: '700' },
   comparisonVs: {
     paddingHorizontal: 15,
   },
-  vsText: {
-    color: 'rgba(255, 255, 255, 0.6)',
-    fontSize: 16,
-    fontWeight: '700',
-  },
+  vsText: { color: '#fff', fontSize: 16, lineHeight: 20, fontWeight: '700' },
   bottomContainer: {
     paddingBottom: 40,
     paddingHorizontal: 40,

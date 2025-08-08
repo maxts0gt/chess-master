@@ -253,5 +253,6 @@ const styles = StyleSheet.create({
   actionLabel: {
     ...theme.typography.labelLarge,
     color: theme.colors.text.primary,
+    fontWeight: '600'
   },
 });

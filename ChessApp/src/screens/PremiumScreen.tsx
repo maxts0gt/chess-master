@@ -398,6 +398,7 @@ const styles = StyleSheet.create({
     ...theme.typography.bodyLarge,
     color: theme.colors.text.secondary,
     textAlign: 'center',
+    fontWeight: '400'
   },
   priceBadge: {
     alignItems: 'center',
@@ -444,10 +445,12 @@ const styles = StyleSheet.create({
     ...theme.typography.titleMedium,
     color: theme.colors.text.primary,
     marginBottom: theme.spacing.xs,
+    fontWeight: '600'
   },
   featureDescription: {
     ...theme.typography.bodyMedium,
     color: theme.colors.text.secondary,
+    fontWeight: '400'
   },
   testimonialsContainer: {
     marginTop: theme.spacing.xl,
@@ -482,6 +485,7 @@ const styles = StyleSheet.create({
   testimonialAuthor: {
     ...theme.typography.bodyMedium,
     color: theme.colors.text.secondary,
+    fontWeight: '400'
   },
   valueContainer: {
     flexDirection: 'row',
@@ -501,6 +505,7 @@ const styles = StyleSheet.create({
     ...theme.typography.labelMedium,
     color: theme.colors.text.secondary,
     textAlign: 'center',
+    fontWeight: '500'
   },
   ctaContainer: {
     position: 'absolute',
@@ -530,6 +535,7 @@ const styles = StyleSheet.create({
     ...theme.typography.bodyMedium,
     color: 'rgba(255, 255, 255, 0.9)',
     marginTop: theme.spacing.xs,
+    fontWeight: '400'
   },
   restoreButton: {
     alignItems: 'center',
@@ -538,6 +544,7 @@ const styles = StyleSheet.create({
   restoreButtonText: {
     ...theme.typography.labelLarge,
     color: theme.colors.primary.main,
+    fontWeight: '600'
   },
   successContainer: {
     flex: 1,
@@ -553,12 +560,14 @@ const styles = StyleSheet.create({
     ...theme.typography.headlineLarge,
     color: theme.colors.text.primary,
     marginBottom: theme.spacing.md,
+    fontWeight: '700'
   },
   successMessage: {
     ...theme.typography.bodyLarge,
     color: theme.colors.text.secondary,
     textAlign: 'center',
     marginBottom: theme.spacing.xl,
+    fontWeight: '400'
   },
   closeButton: {
     backgroundColor: theme.colors.primary.main,
@@ -581,6 +590,7 @@ const styles = StyleSheet.create({
     ...theme.typography.headlineMedium,
     color: theme.colors.text.primary,
     marginBottom: theme.spacing.lg,
+    fontWeight: '700'
   },
   progressBar: {
     width: '80%',
@@ -603,6 +613,7 @@ const styles = StyleSheet.create({
   downloadTip: {
     ...theme.typography.bodyMedium,
     color: theme.colors.text.secondary,
+    fontWeight: '400'
   },
   paywallTitle: { color: theme.colors.text.primary, textAlign: 'center', fontSize: 20, lineHeight: 26, fontWeight: '700', letterSpacing: 0.3 },
   paywallSubtitle: { color: theme.colors.text.secondary, textAlign: 'center', fontSize: 14, lineHeight: 18, fontWeight: '400', letterSpacing: 0.2 },

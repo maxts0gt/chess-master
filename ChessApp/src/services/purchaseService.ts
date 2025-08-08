@@ -131,7 +131,7 @@ class PurchaseService {
 
       // Validate purchase
       if (purchase) {
-        await this.handlePurchase(purchase);
+        await this.handlePurchase(purchase as AnyPurchase);
         return true;
       }
 

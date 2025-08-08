@@ -228,11 +228,12 @@ class PuzzleService {
     if (!analysis.bestMove) return [];
     
     // Check if the best move leads to significant advantage
-    const currentEval = analysis.evaluation;
+    const currentEval = typeof (analysis as any).evaluation === 'number' ? (analysis as any).evaluation : (analysis as any).evaluation?.value ?? 0;
     chess.move(analysis.bestMove);
     
     const afterMoveAnalysis = await offlineStockfish.analyzePosition(chess.fen(), { depth: 15 });
-    const evalDiff = Math.abs(afterMoveAnalysis.evaluation - currentEval);
+    const afterEval = typeof (afterMoveAnalysis as any).evaluation === 'number' ? (afterMoveAnalysis as any).evaluation : (afterMoveAnalysis as any).evaluation?.value ?? 0;
+    const evalDiff = Math.abs(afterEval - currentEval);
     
     // If significant material/positional gain, it's likely tactical
     if (evalDiff > 1.5) {
