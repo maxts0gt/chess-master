@@ -20,6 +20,7 @@ import NetInfo from '@react-native-community/netinfo';
 import RNFS from 'react-native-fs';
 import { mistralChess } from './mistralService';
 import { sha256 } from 'react-native-sha256';
+import { modelManifest } from './modelManifestService';
 
 // Product IDs
 const PRODUCTS = {
@@ -382,80 +383,97 @@ class PremiumService {
     }
 
     try {
-      const modelPath = `${RNFS.DocumentDirectoryPath}/mistral-3b-chess.gguf`;
+      const target = await modelManifest.chooseModel(true);
+      const modelPath = `${RNFS.DocumentDirectoryPath}/${target.name}.gguf`;
       
-      // Ensure enough free space (~2.5GB headroom)
+      // Ensure enough free space (size + 1GB headroom)
       const fsInfo = await RNFS.getFSInfo();
-      if (fsInfo.freeSpace < 2.5 * 1024 * 1024 * 1024) {
-        Alert.alert('Not Enough Space', 'Please free up at least 2.5GB to download the AI model.');
+      if (fsInfo.freeSpace < target.size_bytes + 1 * 1024 * 1024 * 1024) {
+        Alert.alert('Not Enough Space', 'Please free up storage to download the AI model.');
         return;
       }
-      
-      // Start download
-      this.downloadTask = RNFS.downloadFile({
-        fromUrl: AI_MODEL_URL,
-        toFile: modelPath,
-        background: true,
-        discretionary: true,
-        cacheable: false,
-        progressDivider: 1,
-        begin: (res) => {
-          console.log('Download started:', res);
-        },
-        progress: (res) => {
-          const progress = res.bytesWritten / res.contentLength;
-          this.state.downloadProgress = progress;
-          this.notifyListeners();
-        },
-      });
 
-      const result = await this.downloadTask.promise;
-      
-      if (result.statusCode === 200) {
-        // Verify checksum if provided
-        if (AI_MODEL_SHA256 && AI_MODEL_SHA256.length > 10) {
-          try {
-            const fileData = await RNFS.readFile(modelPath, 'base64');
-            // Hash base64-encoded content is not equivalent to file bytes; instead, compute hash in chunks
-            // For simplicity here, we compute on full file path via RNFS.hash if available
-            const fileHash = (RNFS as any).hash ? await (RNFS as any).hash(modelPath, 'sha256') : await sha256(fileData);
-            if (fileHash.toLowerCase() !== AI_MODEL_SHA256.toLowerCase()) {
-              await RNFS.unlink(modelPath);
-              throw new Error('Checksum mismatch');
-            }
-          } catch (e) {
-            Alert.alert('Checksum Failed', 'Model file failed verification. Please retry.');
-            this.state.downloadProgress = 0;
-            this.notifyListeners();
-            return;
-          }
-        }
-
-        // Save model path
-        await AsyncStorage.setItem(STORAGE_KEYS.AI_MODEL_PATH, modelPath);
-        
-        // Update state
-        this.state.isModelDownloaded = true;
-        this.state.downloadProgress = 1;
-        this.notifyListeners();
-        
-        // Initialize AI
-        await mistralChess.initialize('mistral-3b-chess', modelPath);
-        
-        Alert.alert(
-          '✅ AI Coach Ready!',
-          'Your AI coach is ready to help you improve your chess!',
-          [{ text: 'Start Playing', onPress: () => {} }]
-        );
-      } else {
-        throw new Error('Download failed');
+      // Resume if partial file exists
+      let resumeAt = 0;
+      if (await RNFS.exists(modelPath)) {
+        const stat = await RNFS.stat(modelPath);
+        resumeAt = Number(stat.size);
       }
+
+      const headers: Record<string, string> = {};
+      if (resumeAt > 0) {
+        headers['Range'] = `bytes=${resumeAt}-`;
+      }
+
+      // RNFS does not support custom headers in downloadFile across all platforms; fallback to manual fetch + append
+      if (resumeAt > 0) {
+        const res = await fetch(target.url, { headers });
+        if (!(res.status === 206 || res.status === 200)) throw new Error('Resume failed');
+        const reader = (res as any).body?.getReader?.();
+        if (reader) {
+          // Stream to file by appending
+          const fileHandle = await RNFS.appendFile(modelPath, '', 'base64');
+          let received = resumeAt;
+          for (;;) {
+            const chunk = await reader.read();
+            if (chunk.done) break;
+            // chunk.value is Uint8Array; write as base64
+            const b64 = Buffer.from(chunk.value).toString('base64');
+            await RNFS.appendFile(modelPath, b64, 'base64');
+            received += chunk.value.length;
+            this.state.downloadProgress = received / target.size_bytes;
+            this.notifyListeners();
+          }
+        } else {
+          // Fallback: full re-download
+          resumeAt = 0;
+        }
+      }
+
+      if (resumeAt === 0) {
+        this.downloadTask = RNFS.downloadFile({
+          fromUrl: target.url,
+          toFile: modelPath,
+          background: true,
+          discretionary: true,
+          cacheable: false,
+          progressDivider: 1,
+          begin: () => {},
+          progress: (res) => {
+            const progress = res.bytesWritten / res.contentLength;
+            this.state.downloadProgress = progress;
+            this.notifyListeners();
+          },
+        });
+        const result = await this.downloadTask.promise;
+        if (!(result.statusCode === 200)) throw new Error('Download failed');
+      }
+
+      // Verify checksum
+      if (target.sha256 && target.sha256.length > 10) {
+        try {
+          const fileHash = (RNFS as any).hash ? await (RNFS as any).hash(modelPath, 'sha256') : await sha256(await RNFS.readFile(modelPath, 'base64'));
+          if (fileHash.toLowerCase() !== target.sha256.toLowerCase()) {
+            await RNFS.unlink(modelPath);
+            throw new Error('Checksum mismatch');
+          }
+        } catch (e) {
+          Alert.alert('Checksum Failed', 'Model file failed verification. Please retry.');
+          this.state.downloadProgress = 0;
+          this.notifyListeners();
+          return;
+        }
+      }
+
+      await AsyncStorage.setItem(STORAGE_KEYS.AI_MODEL_PATH, modelPath);
+      this.state.isModelDownloaded = true;
+      this.state.downloadProgress = 1;
+      this.notifyListeners();
+      await mistralChess.initialize('mistral-3b-chess', modelPath);
+      Alert.alert('✅ AI Coach Ready!', 'Your AI coach is ready to help you improve your chess!');
     } catch (error) {
       console.error('Failed to download AI model:', error);
-      Alert.alert(
-        'Download Failed',
-        'Unable to download AI model. Please check your connection and try again.'
-      );
+      Alert.alert('Download Failed', 'Unable to download AI model. Please check your connection and try again.');
       this.state.downloadProgress = 0;
       this.notifyListeners();
     }
