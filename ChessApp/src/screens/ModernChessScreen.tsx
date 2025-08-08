@@ -479,8 +479,11 @@ export const ModernChessScreen: React.FC = () => {
               onPress={async () => {
                 try {
                   setShowExplainModal(true);
-                  const text = await mistralChess.explainMove(gameState.fen, mistakeMoveSan || '', 1500);
-                  setExplainText(text.trim());
+                  setExplainText('');
+                  const { coachFacade } = await import('../services/coach');
+                  for await (const token of coachFacade.explainMoveStream(gameState.fen, mistakeMoveSan || '', 1500)) {
+                    setExplainText(prev => (prev + token));
+                  }
                 } catch (e) {
                   setExplainText('Unable to explain right now.');
                 }
