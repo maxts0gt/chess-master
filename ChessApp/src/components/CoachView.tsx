@@ -37,16 +37,23 @@ export const CoachView: React.FC<CoachViewProps> = ({ fen, lastMove, onBack }) =
   }, []);
 
   useEffect(() => {
-    if (lastMove) {
-      explainLastMove();
-    } else {
-      getGeneralTips();
-    }
-  }, [lastMove, fen]);
+    loadTips();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fen, lastMove]);
 
   const checkProStatus = async () => {
     await purchaseService.initialize();
     setIsProUnlocked(purchaseService.isProUnlocked());
+  };
+
+  const loadTips = async () => {
+    setIsLoading(true);
+    try {
+      const tips = await adaptiveAI.getPersonalizedCoaching(fen, lastMove || null);
+      setTips(tips);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const explainLastMove = async () => {

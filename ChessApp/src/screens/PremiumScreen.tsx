@@ -410,7 +410,7 @@ const styles = StyleSheet.create({
   priceText: {
     ...theme.typography.displayMedium,
     color: theme.colors.primary.main,
-    fontWeight: 'bold',
+    fontWeight: '700',
   },
   priceSubtext: {
     ...theme.typography.titleMedium,
@@ -524,7 +524,7 @@ const styles = StyleSheet.create({
   purchaseButtonText: {
     ...theme.typography.titleLarge,
     color: 'white',
-    fontWeight: 'bold',
+    fontWeight: '700',
   },
   purchaseButtonSubtext: {
     ...theme.typography.bodyMedium,
@@ -569,7 +569,7 @@ const styles = StyleSheet.create({
   closeButtonText: {
     ...theme.typography.labelLarge,
     color: 'white',
-    fontWeight: 'bold',
+    fontWeight: '700',
   },
   downloadContainer: {
     flex: 1,
@@ -597,7 +597,7 @@ const styles = StyleSheet.create({
   progressText: {
     ...theme.typography.titleLarge,
     color: theme.colors.text.primary,
-    fontWeight: 'bold',
+    fontWeight: '700',
     marginBottom: theme.spacing.md,
   },
   downloadTip: {

@@ -87,7 +87,7 @@ export const AnimatedChessBoard: React.FC<AnimatedChessBoardProps> = ({
     for (let file = 0; file < 8; file++) {
       for (let rank = 0; rank < 8; rank++) {
         const square = String.fromCharCode(97 + file) + (8 - rank);
-        const piece = chess.get(square);
+        const piece = chess.get(square as Square);
         
         if (piece) {
           const existingPiece = pieces.find(p => p.square === square);
@@ -163,7 +163,7 @@ export const AnimatedChessBoard: React.FC<AnimatedChessBoardProps> = ({
         { useNativeDriver: false }
       ),
       
-      onPanResponderRelease: (_, gestureState) => {
+      onPanResponderRelease: (_: any, gestureState: any) => {
         const { moveX, moveY } = gestureState;
         const boardX = moveX - 16; // Account for padding
         const boardY = moveY - 100; // Account for header

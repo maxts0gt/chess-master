@@ -19,7 +19,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import { Chess } from 'chess.js';
+import { Chess, Square } from 'chess.js';
 import { ChessBoard } from '../components/ChessBoard';
 import { mistralChess } from '../services/mistralService';
 import { offlineStockfish } from '../services/offlineStockfishService';
@@ -92,15 +92,13 @@ export const OfflineChessScreen: React.FC = () => {
   // Handle square selection
   const handleSquarePress = useCallback((square: string) => {
     if (selectedSquare === null) {
-      // First click - select piece
-      const piece = chess.get(square);
+      const piece = chess.get(square as Square);
       if (piece && piece.color === chess.turn()) {
         setSelectedSquare(square);
-        const moves = chess.moves({ square, verbose: true });
+        const moves = chess.moves({ square: square as Square, verbose: true } as any) as any[];
         setLegalMoves(moves.map(m => m.to));
       }
     } else {
-      // Second click - make move
       if (legalMoves.includes(square)) {
         makeMove(selectedSquare, square);
       }

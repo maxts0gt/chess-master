@@ -369,11 +369,13 @@ const styles = StyleSheet.create({
     ...theme.typography.titleLarge,
     color: theme.colors.text.primary,
     marginBottom: theme.spacing.xs,
+    fontWeight: '700'
   },
   warningText: {
     ...theme.typography.bodyMedium,
     color: theme.colors.text.secondary,
     textAlign: 'center',
+    fontWeight: '400'
   },
   features: {
     marginBottom: theme.spacing.xl,
@@ -390,6 +392,7 @@ const styles = StyleSheet.create({
   featureText: {
     ...theme.typography.bodyLarge,
     color: theme.colors.text.primary,
+    fontWeight: '400'
   },
   downloadButton: {
     width: '100%',
@@ -458,6 +461,7 @@ const styles = StyleSheet.create({
   cancelButtonText: {
     ...theme.typography.labelLarge,
     color: theme.colors.error,
+    fontWeight: '500'
   },
   completeContainer: {
     alignItems: 'center',
@@ -470,10 +474,12 @@ const styles = StyleSheet.create({
     ...theme.typography.headlineLarge,
     color: theme.colors.text.primary,
     marginBottom: theme.spacing.md,
+    fontWeight: '700'
   },
   completeText: {
     ...theme.typography.bodyLarge,
     color: theme.colors.text.secondary,
     textAlign: 'center',
+    fontWeight: '400'
   },
 });
