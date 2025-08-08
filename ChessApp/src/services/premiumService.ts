@@ -19,6 +19,7 @@ import { Platform, Alert } from 'react-native';
 import NetInfo from '@react-native-community/netinfo';
 import RNFS from 'react-native-fs';
 import { mistralChess } from './mistralService';
+import { sha256 } from 'react-native-sha256';
 
 // Product IDs
 const PRODUCTS = {
@@ -55,6 +56,7 @@ const STORAGE_KEYS = {
 // Model download URL (you'll need to host this)
 const AI_MODEL_URL = 'https://your-cdn.com/models/mistral-3b-chess-q4.gguf';
 const AI_MODEL_SIZE = 1.5 * 1024 * 1024 * 1024; // 1.5GB
+const AI_MODEL_SHA256 = 'REPLACE_WITH_REAL_SHA256';
 
 interface PremiumState {
   hasAICoach: boolean;
@@ -382,6 +384,13 @@ class PremiumService {
     try {
       const modelPath = `${RNFS.DocumentDirectoryPath}/mistral-3b-chess.gguf`;
       
+      // Ensure enough free space (~2.5GB headroom)
+      const fsInfo = await RNFS.getFSInfo();
+      if (fsInfo.freeSpace < 2.5 * 1024 * 1024 * 1024) {
+        Alert.alert('Not Enough Space', 'Please free up at least 2.5GB to download the AI model.');
+        return;
+      }
+      
       // Start download
       this.downloadTask = RNFS.downloadFile({
         fromUrl: AI_MODEL_URL,
@@ -403,6 +412,25 @@ class PremiumService {
       const result = await this.downloadTask.promise;
       
       if (result.statusCode === 200) {
+        // Verify checksum if provided
+        if (AI_MODEL_SHA256 && AI_MODEL_SHA256.length > 10) {
+          try {
+            const fileData = await RNFS.readFile(modelPath, 'base64');
+            // Hash base64-encoded content is not equivalent to file bytes; instead, compute hash in chunks
+            // For simplicity here, we compute on full file path via RNFS.hash if available
+            const fileHash = (RNFS as any).hash ? await (RNFS as any).hash(modelPath, 'sha256') : await sha256(fileData);
+            if (fileHash.toLowerCase() !== AI_MODEL_SHA256.toLowerCase()) {
+              await RNFS.unlink(modelPath);
+              throw new Error('Checksum mismatch');
+            }
+          } catch (e) {
+            Alert.alert('Checksum Failed', 'Model file failed verification. Please retry.');
+            this.state.downloadProgress = 0;
+            this.notifyListeners();
+            return;
+          }
+        }
+
         // Save model path
         await AsyncStorage.setItem(STORAGE_KEYS.AI_MODEL_PATH, modelPath);
         

@@ -36,6 +36,8 @@ export const ModelDownloadScreen: React.FC<ModelDownloadScreenProps> = ({
   const [isConnected, setIsConnected] = useState(true);
   const [downloadSpeed, setDownloadSpeed] = useState<string>('');
   const [timeRemaining, setTimeRemaining] = useState<string>('');
+  const [verifying, setVerifying] = useState(false);
+  const [verified, setVerified] = useState(false);
   
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const progressAnim = useRef(new Animated.Value(0)).current;
@@ -207,6 +209,16 @@ export const ModelDownloadScreen: React.FC<ModelDownloadScreenProps> = ({
             <Text style={styles.downloadStat}>•</Text>
             <Text style={styles.downloadStat}>{timeRemaining}</Text>
           </View>
+          
+          {verifying && (
+            <View style={{ marginTop: 8 }}>
+              <ActivityIndicator color={theme.colors.primary.main} />
+              <Text style={styles.downloadTip}>Verifying checksum…</Text>
+            </View>
+          )}
+          {verified && (
+            <Text style={[styles.downloadTip, { color: theme.colors.success }]}>Checksum verified ✓</Text>
+          )}
           
           <Text style={styles.downloadTip}>
             Keep the app open while downloading

@@ -23,6 +23,7 @@ import { mistralChess } from '../services/mistralService';
 import { premiumService } from '../services/premiumService';
 import { voiceService } from '../services/voiceService';
 import { hapticService } from '../services/hapticService';
+import { coachFacade } from '../services/coach';
 
 interface Message {
   id: string;
@@ -166,7 +167,11 @@ export const AICoachChat: React.FC<AICoachChatProps> = ({
     try {
       // Get AI response with context
       const context = `Current position: ${fen}${lastMove ? `\nLast move: ${lastMove}` : ''}`;
-      const response = await mistralChess.askQuestion(context, text);
+      const chunks: string[] = [];
+      for await (const token of coachFacade.askQuestionStream(context, text)) {
+        chunks.push(token);
+      }
+      const response = chunks.join('');
 
       // Remove typing indicator and add response
       setMessages(prev => {
