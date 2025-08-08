@@ -11,20 +11,24 @@
   },
   "dependencies": {
     "@react-native-async-storage/async-storage": "^1.21.0",
+    "@react-native-community/netinfo": "^9.4.1",
     "chess.js": "^1.0.0-beta.8",
     "llama.rn": "^0.6.7",
     "react": "18.2.0",
     "react-native": "0.72.7",
-
+    "react-native-camera": "^4.2.1",
     "react-native-fs": "^2.20.0",
+    "react-native-haptic-feedback": "^2.2.0",
     "react-native-iap": "^12.13.0",
     "react-native-incall-manager": "^4.1.0",
-
     "react-native-linear-gradient": "^2.8.3",
-    "react-native-webrtc": "^118.0.1",
-    "@react-native-community/netinfo": "^9.4.1",
+    "react-native-permissions": "^3.10.1",
+    "react-native-qrcode-scanner": "^1.5.5",
+    "react-native-qrcode-svg": "^6.3.0",
+    "react-native-sha256": "^1.4.11",
+    "react-native-svg": "^14.1.0",
     "react-native-tts": "^4.1.0",
-    "react-native-haptic-feedback": "^2.2.0",
+    "react-native-webrtc": "^118.0.1",
     "stockfish.wasm": "^0.10.0"
   },
   "devDependencies": {
@@ -42,6 +46,7 @@
     "metro-react-native-babel-preset": "0.76.8",
     "prettier": "^2.4.1",
     "react-test-renderer": "18.2.0",
+    "ts-jest": "^29.1.1",
     "typescript": "4.8.4"
   },
   "engines": {

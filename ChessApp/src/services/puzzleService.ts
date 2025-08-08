@@ -6,6 +6,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Chess } from 'chess.js';
 import { offlineStockfish } from './offlineStockfishService';
+import { GameReview } from './historyService';
 
 export interface Puzzle {
   id: string;
@@ -56,10 +57,33 @@ class PuzzleService {
     themeAccuracy: {} as Record<PuzzleTheme, { solved: number; attempted: number }>,
     ratingProgress: [],
   };
+  private preferredThemes: PuzzleTheme[] | undefined;
 
   async initialize() {
     await this.loadStats();
     await this.loadPuzzleCache();
+  }
+
+  /**
+   * Use recent reviews to bias puzzle generation towards user's weak patterns
+   */
+  setBiasFromReviews(reviews: GameReview[]) {
+    const themeCounts: Record<PuzzleTheme, number> = {} as any;
+    // Naive heuristic: map large negative deltas to typical tactical themes
+    for (const rev of reviews.slice(-5)) {
+      for (const m of rev.moves) {
+        if (m.isBlunder && m.delta < -0.7) {
+          // Map by quick detection on fen
+          // Reuse detectPatterns on the blunder position
+          // Note: this is async normally, but we can store target fens for next generation
+          // For now, assign common themes likely from blunders
+          const likely: PuzzleTheme[] = ['fork', 'pin', 'skewer', 'back_rank', 'hanging_piece'];
+          for (const t of likely) themeCounts[t] = (themeCounts[t] || 0) + 1;
+        }
+      }
+    }
+    const ranked = Object.entries(themeCounts).sort((a,b) => b[1]-a[1]).map(([t]) => t as PuzzleTheme);
+    this.preferredThemes = ranked.slice(0, 3);
   }
 
   private async loadStats() {
@@ -116,8 +140,11 @@ class PuzzleService {
     const ratingRange = this.getRatingRange();
     const targetRating = ratingRange.min + Math.random() * (ratingRange.max - ratingRange.min);
     
+    // Apply bias if caller did not provide themes
+    const usedThemes = themes && themes.length ? themes : this.preferredThemes;
+    
     // Generate tactical position using Stockfish
-    const puzzle = await this.generateTacticalPosition(targetRating, themes);
+    const puzzle = await this.generateTacticalPosition(targetRating, usedThemes);
     
     // Cache the puzzle
     this.puzzleCache.set(puzzle.id, puzzle);
@@ -150,7 +177,7 @@ class PuzzleService {
     moves.forEach(move => chess.move(move));
     
     // Find critical positions using Stockfish
-    const analysis = await offlineStockfish.analyze(chess.fen(), 20);
+    const analysis = await offlineStockfish.analyzePosition(chess.fen(), { depth: 20 });
     
     // Look for positions with sharp tactical content
     const tacticalMoves = await this.findTacticalMoves(chess.fen());
@@ -197,15 +224,16 @@ class PuzzleService {
     const moves: string[] = [];
     
     // Get best line from Stockfish
-    const analysis = await offlineStockfish.analyze(fen, 20);
+    const analysis = await offlineStockfish.analyzePosition(fen, { depth: 20 });
     if (!analysis.bestMove) return [];
     
     // Check if the best move leads to significant advantage
-    const currentEval = analysis.evaluation;
+    const currentEval = typeof (analysis as any).evaluation === 'number' ? (analysis as any).evaluation : (analysis as any).evaluation?.value ?? 0;
     chess.move(analysis.bestMove);
     
-    const afterMoveAnalysis = await offlineStockfish.analyze(chess.fen(), 15);
-    const evalDiff = Math.abs(afterMoveAnalysis.evaluation - currentEval);
+    const afterMoveAnalysis = await offlineStockfish.analyzePosition(chess.fen(), { depth: 15 });
+    const afterEval = typeof (afterMoveAnalysis as any).evaluation === 'number' ? (afterMoveAnalysis as any).evaluation : (afterMoveAnalysis as any).evaluation?.value ?? 0;
+    const evalDiff = Math.abs(afterEval - currentEval);
     
     // If significant material/positional gain, it's likely tactical
     if (evalDiff > 1.5) {
@@ -214,7 +242,7 @@ class PuzzleService {
       // Get the continuation
       if (afterMoveAnalysis.bestMove) {
         chess.move(afterMoveAnalysis.bestMove);
-        const continuation = await offlineStockfish.analyze(chess.fen(), 15);
+        const continuation = await offlineStockfish.analyzePosition(chess.fen(), { depth: 15 });
         if (continuation.bestMove) {
           moves.push(afterMoveAnalysis.bestMove, continuation.bestMove);
         }

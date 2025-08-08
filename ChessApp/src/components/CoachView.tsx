@@ -37,16 +37,23 @@ export const CoachView: React.FC<CoachViewProps> = ({ fen, lastMove, onBack }) =
   }, []);
 
   useEffect(() => {
-    if (lastMove) {
-      explainLastMove();
-    } else {
-      getGeneralTips();
-    }
-  }, [lastMove, fen]);
+    loadTips();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fen, lastMove]);
 
   const checkProStatus = async () => {
     await purchaseService.initialize();
     setIsProUnlocked(purchaseService.isProUnlocked());
+  };
+
+  const loadTips = async () => {
+    setIsLoading(true);
+    try {
+      const tips = await adaptiveAI.getPersonalizedCoaching(fen, lastMove || null);
+      setTips(tips);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const explainLastMove = async () => {
@@ -67,10 +74,8 @@ export const CoachView: React.FC<CoachViewProps> = ({ fen, lastMove, onBack }) =
     }
     
     try {
-      // Get personalized coaching based on player level
-      const personalizedTip = await adaptiveAI.getPersonalizedTip(fen, lastMove);
-      
-      // Stream with typewriter effect
+      const tips = await adaptiveAI.getPersonalizedCoaching(fen, lastMove || null);
+      const personalizedTip = tips.join(' ');
       const words = personalizedTip.split(' ');
       for (const word of words) {
         setExplanation(prev => prev + word + ' ');

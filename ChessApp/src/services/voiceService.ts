@@ -24,32 +24,29 @@ class VoiceService {
     language: 'en-US',
   };
   
-  private voiceProfiles = {
-    magnus: {
-      rate: 0.45,
-      pitch: 0.9,
-      language: 'en-GB',
-    },
-    beth: {
-      rate: 0.55,
-      pitch: 1.1,
-      language: 'en-US',
-    },
-    kasparov: {
-      rate: 0.5,
-      pitch: 0.85,
-      language: 'en-US',
-    },
-    zen: {
-      rate: 0.4,
-      pitch: 0.95,
-      language: 'en-IN',
-    },
-    coach: {
-      rate: 0.5,
-      pitch: 1.05,
-      language: 'en-US',
-    },
+  private voiceProfiles: Record<string, { rate: number; pitch: number; language: string }> = {
+    magnus: { rate: 0.5, pitch: 1.0, language: 'en-US' },
+    beth: { rate: 0.9, pitch: 1.2, language: 'en-US' },
+    kasparov: { rate: 0.8, pitch: 0.9, language: 'en-US' },
+    zen: { rate: 0.7, pitch: 1.0, language: 'en-US' },
+    coach: { rate: 0.85, pitch: 1.0, language: 'en-US' },
+  };
+
+  private events: Record<string, string> = {
+    check: 'Check!',
+    checkmate: 'Checkmate!',
+    stalemate: 'Stalemate',
+    draw: 'Game drawn',
+    resign: 'Resignation',
+    timeout: 'Time out',
+    promotion: 'Promotion!',
+    capture: 'Capture',
+    blunder: 'Blunder',
+    brilliant: 'Brilliant',
+    best: 'Best move',
+    good: 'Good move',
+    inaccuracy: 'Inaccuracy',
+    mistake: 'Mistake',
   };
 
   async initialize(): Promise<void> {
@@ -146,24 +143,7 @@ class VoiceService {
   async announceGameEvent(event: string, details?: string): Promise<void> {
     if (!this.settings.enabled) return;
 
-    const announcements = {
-      check: 'Check!',
-      checkmate: 'Checkmate! Game over.',
-      stalemate: 'Stalemate! The game is a draw.',
-      draw: 'The game is a draw.',
-      resign: 'Resignation. Game over.',
-      timeout: 'Time out! Game over.',
-      promotion: 'Pawn promotion!',
-      capture: details || 'Piece captured.',
-      blunder: 'That might be a blunder.',
-      brilliant: 'Brilliant move!',
-      best: 'Best move!',
-      good: 'Good move.',
-      inaccuracy: 'Slight inaccuracy.',
-      mistake: 'That\'s a mistake.',
-    };
-
-    const announcement = announcements[event] || event;
+    const announcement = this.events[event] || event;
     await this.speak(announcement);
   }
 

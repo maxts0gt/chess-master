@@ -19,7 +19,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import { Chess } from 'chess.js';
+import { Chess, Square } from 'chess.js';
 import { ChessBoard } from '../components/ChessBoard';
 import { mistralChess } from '../services/mistralService';
 import { offlineStockfish } from '../services/offlineStockfishService';
@@ -92,15 +92,13 @@ export const OfflineChessScreen: React.FC = () => {
   // Handle square selection
   const handleSquarePress = useCallback((square: string) => {
     if (selectedSquare === null) {
-      // First click - select piece
-      const piece = chess.get(square);
+      const piece = chess.get(square as Square);
       if (piece && piece.color === chess.turn()) {
         setSelectedSquare(square);
-        const moves = chess.moves({ square, verbose: true });
+        const moves = chess.moves({ square: square as Square, verbose: true } as any) as any[];
         setLegalMoves(moves.map(m => m.to));
       }
     } else {
-      // Second click - make move
       if (legalMoves.includes(square)) {
         makeMove(selectedSquare, square);
       }
@@ -194,8 +192,8 @@ export const OfflineChessScreen: React.FC = () => {
       ]);
       
       setCurrentAnalysis({
-        evaluation: stockfishEval,
         ...mistralAnalysis,
+        evaluation: stockfishEval,
       });
       
       // Update last move with evaluation
@@ -296,11 +294,14 @@ export const OfflineChessScreen: React.FC = () => {
       <Animated.View style={[styles.boardContainer, { opacity: fadeAnim }]}>
         <ChessBoard
           fen={fen}
-          onSquarePress={handleSquarePress}
-          selectedSquare={selectedSquare}
-          legalMoves={legalMoves}
-          lastMove={moves[moves.length - 1]}
-          flipped={false}
+          onMove={(move: any) => {
+            // assuming move contains from/to
+            if (move && move.from && move.to) {
+              makeMove(move.from, move.to);
+            }
+          }}
+          playable={true}
+          showCoordinates={true}
         />
       </Animated.View>
 
@@ -310,9 +311,10 @@ export const OfflineChessScreen: React.FC = () => {
           <Text style={styles.evaluationText}>
             Eval: {currentAnalysis.evaluation > 0 ? '+' : ''}{currentAnalysis.evaluation.toFixed(2)}
           </Text>
-          <Text style={styles.analysisText}>{currentAnalysis.evaluation}</Text>
+          {/* Detailed analysis text */}
+          <Text style={styles.analysisText}>{String(currentAnalysis.evaluation)}</Text>
           <ScrollView horizontal style={styles.bestMovesRow}>
-            {currentAnalysis.bestMoves.map((move, idx) => (
+            {currentAnalysis.bestMoves.map((move: string, idx: number) => (
               <TouchableOpacity key={idx} style={styles.moveChip}>
                 <Text style={styles.moveChipText}>{move}</Text>
               </TouchableOpacity>

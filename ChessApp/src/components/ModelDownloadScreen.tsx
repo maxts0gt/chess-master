@@ -15,6 +15,8 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
+// @ts-ignore
+const LG: any = LinearGradient as any;
 import NetInfo from '@react-native-community/netinfo';
 import { premiumService } from '../services/premiumService';
 import { theme } from '../styles/theme';
@@ -36,6 +38,8 @@ export const ModelDownloadScreen: React.FC<ModelDownloadScreenProps> = ({
   const [isConnected, setIsConnected] = useState(true);
   const [downloadSpeed, setDownloadSpeed] = useState<string>('');
   const [timeRemaining, setTimeRemaining] = useState<string>('');
+  const [verifying, setVerifying] = useState(false);
+  const [verified, setVerified] = useState(false);
   
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const progressAnim = useRef(new Animated.Value(0)).current;
@@ -208,6 +212,16 @@ export const ModelDownloadScreen: React.FC<ModelDownloadScreenProps> = ({
             <Text style={styles.downloadStat}>{timeRemaining}</Text>
           </View>
           
+          {verifying && (
+            <View style={{ marginTop: 8 }}>
+              <ActivityIndicator color={theme.colors.primary.main} />
+              <Text style={styles.downloadTip}>Verifying checksum…</Text>
+            </View>
+          )}
+          {verified && (
+            <Text style={[styles.downloadTip, { color: theme.colors.success }]}>Checksum verified ✓</Text>
+          )}
+          
           <Text style={styles.downloadTip}>
             Keep the app open while downloading
           </Text>
@@ -265,7 +279,7 @@ export const ModelDownloadScreen: React.FC<ModelDownloadScreenProps> = ({
           onPress={handleDownload}
           disabled={!isConnected}
         >
-          <LinearGradient
+          <LG
             colors={
               !isConnected 
                 ? ['#999', '#666'] 
@@ -285,7 +299,7 @@ export const ModelDownloadScreen: React.FC<ModelDownloadScreenProps> = ({
                 : 'Download on WiFi'
               }
             </Text>
-          </LinearGradient>
+          </LG>
         </TouchableOpacity>
         
         <TouchableOpacity style={styles.skipButton} onPress={onSkip}>
@@ -330,16 +344,8 @@ const styles = StyleSheet.create({
     fontSize: 100,
     marginBottom: theme.spacing.lg,
   },
-  modelTitle: {
-    ...theme.typography.headlineLarge,
-    color: theme.colors.text.primary,
-    marginBottom: theme.spacing.sm,
-  },
-  modelSize: {
-    ...theme.typography.titleLarge,
-    color: theme.colors.text.secondary,
-    marginBottom: theme.spacing.xl,
-  },
+  modelTitle: { color: theme.colors.text.primary, textAlign: 'center', fontSize: 18, lineHeight: 22, fontWeight: '600', letterSpacing: 0.2 },
+  modelSize: { color: theme.colors.text.secondary, textAlign: 'center', fontSize: 14, lineHeight: 18, fontWeight: '400', letterSpacing: 0.2 },
   warningBox: {
     backgroundColor: theme.colors.surface.elevated,
     padding: theme.spacing.lg,
@@ -363,11 +369,13 @@ const styles = StyleSheet.create({
     ...theme.typography.titleLarge,
     color: theme.colors.text.primary,
     marginBottom: theme.spacing.xs,
+    fontWeight: '700'
   },
   warningText: {
     ...theme.typography.bodyMedium,
     color: theme.colors.text.secondary,
     textAlign: 'center',
+    fontWeight: '400'
   },
   features: {
     marginBottom: theme.spacing.xl,
@@ -384,6 +392,7 @@ const styles = StyleSheet.create({
   featureText: {
     ...theme.typography.bodyLarge,
     color: theme.colors.text.primary,
+    fontWeight: '400'
   },
   downloadButton: {
     width: '100%',
@@ -401,7 +410,7 @@ const styles = StyleSheet.create({
   downloadButtonText: {
     ...theme.typography.titleMedium,
     color: 'white',
-    fontWeight: 'bold',
+    fontWeight: '700',
   },
   skipButton: {
     padding: theme.spacing.md,
@@ -409,6 +418,7 @@ const styles = StyleSheet.create({
   skipButtonText: {
     ...theme.typography.labelLarge,
     color: theme.colors.text.secondary,
+    fontWeight: '500'
   },
   downloadingContainer: {
     alignItems: 'center',
@@ -418,11 +428,7 @@ const styles = StyleSheet.create({
     fontSize: 80,
     marginBottom: theme.spacing.lg,
   },
-  downloadTitle: {
-    ...theme.typography.headlineMedium,
-    color: theme.colors.text.primary,
-    marginBottom: theme.spacing.xl,
-  },
+  downloadTitle: { color: theme.colors.text.primary, textAlign: 'center', fontSize: 18, lineHeight: 22, fontWeight: '500', letterSpacing: 0.2 },
   progressContainer: {
     width: '100%',
     marginBottom: theme.spacing.md,
@@ -438,34 +444,25 @@ const styles = StyleSheet.create({
     height: '100%',
     backgroundColor: theme.colors.primary.main,
   },
-  progressText: {
-    ...theme.typography.headlineSmall,
-    color: theme.colors.text.primary,
-    textAlign: 'center',
-    fontWeight: 'bold',
-  },
+  progressText: { color: theme.colors.text.secondary, fontSize: 12, lineHeight: 16, fontWeight: '400', letterSpacing: 0.2 },
   downloadStats: {
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: theme.spacing.lg,
   },
   downloadStat: {
-    ...theme.typography.bodyMedium,
+    ...(theme.typography.bodyMedium as any),
     color: theme.colors.text.secondary,
     marginHorizontal: theme.spacing.sm,
   },
-  downloadTip: {
-    ...theme.typography.bodyMedium,
-    color: theme.colors.text.secondary,
-    textAlign: 'center',
-    marginBottom: theme.spacing.xl,
-  },
+  downloadTip: { color: theme.colors.text.secondary, fontSize: 12, lineHeight: 16, fontWeight: '400', letterSpacing: 0.2 },
   cancelButton: {
     padding: theme.spacing.md,
   },
   cancelButtonText: {
     ...theme.typography.labelLarge,
     color: theme.colors.error,
+    fontWeight: '500'
   },
   completeContainer: {
     alignItems: 'center',
@@ -478,10 +475,12 @@ const styles = StyleSheet.create({
     ...theme.typography.headlineLarge,
     color: theme.colors.text.primary,
     marginBottom: theme.spacing.md,
+    fontWeight: '700'
   },
   completeText: {
     ...theme.typography.bodyLarge,
     color: theme.colors.text.secondary,
     textAlign: 'center',
+    fontWeight: '400'
   },
 });

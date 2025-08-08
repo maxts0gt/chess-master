@@ -13,8 +13,9 @@ import {
   Vibration,
   Platform,
 } from 'react-native';
-import { Chess } from 'chess.js';
+import { Chess, Square } from 'chess.js';
 import { theme } from '../styles/theme';
+import Svg, { Line, Circle, Marker, Path, Defs } from 'react-native-svg';
 
 const { width: screenWidth } = Dimensions.get('window');
 const BOARD_SIZE = Math.min(screenWidth - 32, 400);
@@ -29,6 +30,8 @@ interface AnimatedChessBoardProps {
   selectedSquare?: string | null;
   legalMoves?: string[];
   isPlayerTurn: boolean;
+  bestLineUci?: string[]; // e.g., ['e2e4','e7e5','g1f3']
+  threatSquares?: string[]; // squares to draw heat/dots on
 }
 
 interface PiecePosition {
@@ -51,6 +54,8 @@ export const AnimatedChessBoard: React.FC<AnimatedChessBoardProps> = ({
   selectedSquare,
   legalMoves = [],
   isPlayerTurn,
+  bestLineUci = [],
+  threatSquares = [],
 }) => {
   const [pieces, setPieces] = useState<PiecePosition[]>([]);
   const [draggingPiece, setDraggingPiece] = useState<string | null>(null);
@@ -82,7 +87,7 @@ export const AnimatedChessBoard: React.FC<AnimatedChessBoardProps> = ({
     for (let file = 0; file < 8; file++) {
       for (let rank = 0; rank < 8; rank++) {
         const square = String.fromCharCode(97 + file) + (8 - rank);
-        const piece = chess.get(square);
+        const piece = chess.get(square as Square);
         
         if (piece) {
           const existingPiece = pieces.find(p => p.square === square);
@@ -158,7 +163,7 @@ export const AnimatedChessBoard: React.FC<AnimatedChessBoardProps> = ({
         { useNativeDriver: false }
       ),
       
-      onPanResponderRelease: (_, gestureState) => {
+      onPanResponderRelease: (_: any, gestureState: any) => {
         const { moveX, moveY } = gestureState;
         const boardX = moveX - 16; // Account for padding
         const boardY = moveY - 100; // Account for header
@@ -198,6 +203,7 @@ export const AnimatedChessBoard: React.FC<AnimatedChessBoardProps> = ({
 
   const renderSquare = (file: number, rank: number) => {
     const square = String.fromCharCode(97 + file) + (8 - rank);
+    const piece = new Chess(fen).get(square as Square);
     const isLight = (file + rank) % 2 === 0;
     const isHighlighted = highlightedSquares.includes(square);
     const isSelected = selectedSquare === square;
@@ -276,6 +282,57 @@ export const AnimatedChessBoard: React.FC<AnimatedChessBoardProps> = ({
     );
   };
 
+  const squareCenter = (square: string) => {
+    const file = square.charCodeAt(0) - 97;
+    const rank = 8 - parseInt(square[1]);
+    const x = (flipped ? (7 - file) : file) * SQUARE_SIZE + SQUARE_SIZE / 2;
+    const y = (flipped ? (7 - rank) : rank) * SQUARE_SIZE + SQUARE_SIZE / 2;
+    return { x, y };
+  };
+
+  const renderArrows = () => {
+    if (!bestLineUci || bestLineUci.length === 0) return null;
+    const arrows = [] as JSX.Element[];
+    for (let i = 0; i < Math.min(3, bestLineUci.length); i++) {
+      const uci = bestLineUci[i];
+      const from = uci.substring(0, 2);
+      const to = uci.substring(2, 4);
+      const { x: x1, y: y1 } = squareCenter(from);
+      const { x: x2, y: y2 } = squareCenter(to);
+      const color = i === 0 ? '#4CAF50' : i === 1 ? '#FFC107' : '#03A9F4';
+      arrows.push(
+        <Path
+          key={`arrow-${uci}-${i}`}
+          d={`M ${x1} ${y1} L ${x2} ${y2}`}
+          stroke={color}
+          strokeWidth={6 - Math.min(4, i)}
+          strokeLinecap="round"
+        />
+      );
+      arrows.push(
+        <Circle key={`dot-${uci}-${i}`} cx={x2} cy={y2} r={8 - Math.min(6, i * 2)} fill={color} />
+      );
+    }
+    return (
+      <Svg style={StyleSheet.absoluteFill} width={BOARD_SIZE} height={BOARD_SIZE}>
+        {arrows}
+      </Svg>
+    );
+  };
+
+  const renderThreats = () => {
+    if (!threatSquares || threatSquares.length === 0) return null;
+    const dots = threatSquares.map((sq, idx) => {
+      const { x, y } = squareCenter(sq);
+      return <Circle key={`threat-${sq}-${idx}`} cx={x} cy={y} r={6} fill={'rgba(244, 67, 54, 0.5)'} />;
+    });
+    return (
+      <Svg style={StyleSheet.absoluteFill} width={BOARD_SIZE} height={BOARD_SIZE}>
+        {dots}
+      </Svg>
+    );
+  };
+
   return (
     <Animated.View
       style={[
@@ -287,14 +344,23 @@ export const AnimatedChessBoard: React.FC<AnimatedChessBoardProps> = ({
       ]}
     >
       <View style={styles.board}>
-        {Array.from({ length: 8 }).map((_, rank) =>
-          Array.from({ length: 8 }).map((_, file) =>
-            renderSquare(file, rank)
-          )
-        )}
-      </View>
-      <View style={styles.piecesContainer}>
+        {/* Board squares */}
+        <View style={styles.grid}>
+          {Array.from({ length: 8 }).map((_, rank) => (
+            <View key={rank} style={styles.row}>
+              {Array.from({ length: 8 }).map((_, file) => renderSquare(file, rank))}
+            </View>
+          ))}
+        </View>
+
+        {/* Pieces */}
         {pieces.map(renderPiece)}
+
+        {/* Best line arrows */}
+        {renderArrows()}
+
+        {/* Threat heatmap */}
+        {renderThreats()}
       </View>
     </Animated.View>
   );
@@ -310,10 +376,13 @@ const styles = StyleSheet.create({
   board: {
     width: BOARD_SIZE,
     height: BOARD_SIZE,
+    alignSelf: 'center',
+  },
+  grid: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  row: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    borderRadius: theme.borderRadius.md,
-    overflow: 'hidden',
   },
   square: {
     width: SQUARE_SIZE,

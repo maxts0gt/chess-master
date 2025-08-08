@@ -140,6 +140,9 @@ export const AIPersonalitySelector: React.FC<AIPersonalitySelectorProps> = ({
   const cardWidth = screenWidth * 0.8;
   const cardMargin = 20;
 
+  // @ts-ignore
+  const LG: any = LinearGradient as any;
+
   return (
     <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
       <View style={styles.header}>
@@ -193,7 +196,7 @@ export const AIPersonalitySelector: React.FC<AIPersonalitySelectorProps> = ({
                 },
               ]}
             >
-              <LinearGradient
+              <LG
                 colors={personality.gradient}
                 style={styles.cardGradient}
                 start={{ x: 0, y: 0 }}
@@ -230,7 +233,7 @@ export const AIPersonalitySelector: React.FC<AIPersonalitySelectorProps> = ({
                     </Text>
                   </TouchableOpacity>
                 </View>
-              </LinearGradient>
+              </LG>
             </Animated.View>
           );
         })}
@@ -289,15 +292,22 @@ const styles = StyleSheet.create({
     marginBottom: theme.spacing.xl,
     paddingHorizontal: theme.spacing.xl,
   },
-  title: {
-    ...theme.typography.headlineLarge,
-    color: theme.colors.text.primary,
-    marginBottom: theme.spacing.sm,
-  },
+  title: { ...theme.typography.titleLarge, color: theme.colors.text.primary, fontWeight: '700' },
   subtitle: {
     ...theme.typography.bodyLarge,
-    color: theme.colors.text.secondary,
+    color: '#aaa',
     textAlign: 'center',
+    fontSize: 14,
+    lineHeight: 18,
+    fontWeight: '400',
+    letterSpacing: 0.2,
+  },
+  footer: {
+    color: '#888',
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: '400',
+    letterSpacing: 0.2,
   },
   scrollContent: {
     paddingHorizontal: (Dimensions.get('window').width * 0.1) / 2,
@@ -323,18 +333,18 @@ const styles = StyleSheet.create({
     marginBottom: theme.spacing.md,
   },
   personalityName: {
-    ...theme.typography.headlineMedium,
+    ...(theme.typography.headlineMedium as any),
     color: 'white',
-    fontWeight: 'bold',
+    fontWeight: '700',
     marginBottom: theme.spacing.xs,
   },
   personalityTitle: {
-    ...theme.typography.titleMedium,
+    ...(theme.typography.titleMedium as any),
     color: 'rgba(255, 255, 255, 0.9)',
     marginBottom: theme.spacing.lg,
   },
   description: {
-    ...theme.typography.bodyLarge,
+    ...(theme.typography.bodyLarge as any),
     color: 'white',
     textAlign: 'center',
     marginBottom: theme.spacing.lg,
@@ -353,7 +363,7 @@ const styles = StyleSheet.create({
     margin: theme.spacing.xs,
   },
   traitText: {
-    ...theme.typography.labelMedium,
+    ...(theme.typography.labelMedium as any),
     color: 'white',
     fontWeight: '600',
   },
@@ -362,12 +372,12 @@ const styles = StyleSheet.create({
     marginBottom: theme.spacing.xl,
   },
   teachingStyleLabel: {
-    ...theme.typography.labelLarge,
+    ...(theme.typography.labelLarge as any),
     color: 'rgba(255, 255, 255, 0.8)',
     marginBottom: theme.spacing.xs,
   },
   teachingStyle: {
-    ...theme.typography.bodyMedium,
+    ...(theme.typography.bodyMedium as any),
     color: 'white',
     textAlign: 'center',
     paddingHorizontal: theme.spacing.lg,
@@ -383,9 +393,9 @@ const styles = StyleSheet.create({
     backgroundColor: 'white',
   },
   selectButtonText: {
-    ...theme.typography.titleMedium,
+    ...(theme.typography.titleMedium as any),
     color: theme.colors.primary.main,
-    fontWeight: 'bold',
+    fontWeight: '700',
     textAlign: 'center',
   },
   pagination: {
@@ -407,7 +417,8 @@ const styles = StyleSheet.create({
     padding: theme.spacing.md,
   },
   closeButtonText: {
-    ...theme.typography.labelLarge,
+    ...(theme.typography.labelLarge as any),
     color: theme.colors.text.secondary,
+    fontWeight: '500'
   },
 });

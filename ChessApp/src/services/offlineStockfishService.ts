@@ -47,7 +47,9 @@ class OfflineStockfishService {
       this.engine = await Stockfish.default();
       
       // Set up message listener
-      this.engine.addMessageListener(this.handleEngineMessage.bind(this));
+      if (this.engine) {
+        this.engine.addMessageListener(this.handleEngineMessage.bind(this));
+      }
       
       // Initialize engine
       this.sendCommand('uci');
@@ -210,7 +212,7 @@ class OfflineStockfishService {
   }
 
   private sendCommand(command: string): void {
-    if (this.engine) {
+    if (this.engine && (this.engine as any).postMessage) {
       this.engine.postMessage(command);
     }
   }

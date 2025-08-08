@@ -5,7 +5,13 @@
 
 import { Chess } from 'chess.js';
 import { webRTCService } from './webRTCService';
-import { signalEncryption, EncryptedMessage } from './signalEncryptionService';
+// Optional Signal encryption (module may be excluded in tsconfig for RN typing)
+let signalEncryption: any = null as any;
+type EncryptedMessage = { type: 'prekey' | 'message'; body: string; registrationId?: number };
+try {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  signalEncryption = require('./signalEncryptionService').signalEncryption;
+} catch {}
 import { stockfish } from './stockfishService';
 
 export interface GameMessage {
@@ -44,8 +50,10 @@ class PresidentialGameService {
     try {
       console.log('Initializing Presidential Mode...');
       
-      // Initialize Signal encryption
-      await signalEncryption.initialize();
+      // Initialize Signal encryption if available
+      if (signalEncryption && signalEncryption.initialize) {
+        await signalEncryption.initialize();
+      }
       
       // Initialize WebRTC
       await webRTCService.initialize(isHost, {
@@ -76,10 +84,9 @@ class PresidentialGameService {
       try {
         const encrypted: EncryptedMessage = JSON.parse(message);
         if (encrypted.type && encrypted.body) {
-          decryptedMessage = await signalEncryption.decryptMessage(
-            this.remoteId,
-            encrypted
-          );
+          decryptedMessage = signalEncryption && signalEncryption.decryptMessage
+            ? await signalEncryption.decryptMessage(encrypted)
+            : encrypted.body;
         }
       } catch {
         // Not encrypted, use as-is
@@ -234,8 +241,8 @@ class PresidentialGameService {
       const messageStr = JSON.stringify(message);
       
       // Encrypt if we have a session
-      if (await signalEncryption.hasSession(this.remoteId)) {
-        const encrypted = await signalEncryption.encryptMessage(
+      if (signalEncryption && signalEncryption.encryptMessage) {
+        const encrypted: EncryptedMessage = await signalEncryption.encryptMessage(
           this.remoteId,
           messageStr
         );

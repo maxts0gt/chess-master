@@ -218,23 +218,18 @@ class AdaptiveAIService {
   /**
    * Get personalized coaching based on level
    */
-  async getPersonalizedTip(fen: string, lastMove: string): Promise<string> {
-    const level = this.stats.currentLevel;
-    
-    // Add context about player level
-    const context = `Player is level ${level}/20 (${this.getLevelDescription()}). `;
-    
-    // Get coaching with context
-    const explanation = await coach.explainMove(fen, lastMove);
-    
-    // Add encouragement based on performance
-    if (this.stats.streak >= 2) {
-      return explanation + " You're on fire! 🔥";
-    } else if (this.stats.streak <= -2) {
-      return explanation + " Keep trying, you're improving! 💪";
+  async getPersonalizedCoaching(fen: string, lastMove: string | null): Promise<string[]> {
+    // Provide 3 short tips based on level; fallback to coachService tips
+    try {
+      const tips = await coach.getPositionTips(fen);
+      return tips;
+    } catch {
+      return [
+        'Control the center',
+        'Develop pieces',
+        'Ensure king safety',
+      ];
     }
-    
-    return explanation;
   }
 
   /**

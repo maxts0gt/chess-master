@@ -15,9 +15,14 @@ import {
   Platform,
   Alert,
   ActivityIndicator,
+  Modal,
 } from 'react-native';
 import { ChessBoard } from './ChessBoard';
 import { presidentialGame } from '../services/presidentialGameService';
+import { webRTCService } from '../services/webRTCService';
+import QRCode from 'react-native-qrcode-svg';
+import QRCodeScanner from 'react-native-qrcode-scanner';
+import { check, request, PERMISSIONS, RESULTS } from 'react-native-permissions';
 
 interface PresidentialGameViewProps {
   isHost: boolean;
@@ -43,6 +48,11 @@ export const PresidentialGameView: React.FC<PresidentialGameViewProps> = ({
   const [gameResult, setGameResult] = useState<'win' | 'lose' | 'draw' | null>(null);
   const [isOurTurn, setIsOurTurn] = useState(isHost);
   const scrollViewRef = useRef<ScrollView>(null);
+  const [showSignalModal, setShowSignalModal] = useState(true);
+  const [localSignal, setLocalSignal] = useState('');
+  const [remoteSignal, setRemoteSignal] = useState('');
+  const [signalStep, setSignalStep] = useState<'offer' | 'answer' | 'complete'>(() => (isHost ? 'offer' : 'answer'));
+  const [scannerOpen, setScannerOpen] = useState(false);
 
   useEffect(() => {
     initializeGame();
@@ -50,6 +60,19 @@ export const PresidentialGameView: React.FC<PresidentialGameViewProps> = ({
       presidentialGame.cleanup();
     };
   }, []);
+
+  useEffect(() => {
+    // Subscribe to ICE updates to refresh localSignal if needed
+    webRTCService.onLocalIceCandidates((cands) => {
+      try {
+        const current = JSON.parse(localSignal || '{}');
+        const updated = { ...current, iceCandidates: cands };
+        setLocalSignal(JSON.stringify(updated));
+      } catch {
+        // ignore
+      }
+    });
+  }, [localSignal]);
 
   const initializeGame = async () => {
     try {
@@ -70,11 +93,20 @@ export const PresidentialGameView: React.FC<PresidentialGameViewProps> = ({
           setGameResult(result);
           showGameEndAlert(result);
         },
-        onConnectionChange: setConnectionState,
+        onConnectionChange: (state) => {
+          setConnectionState(state);
+          if (state === 'connected') setShowSignalModal(false);
+        },
         onError: (error) => {
           Alert.alert('Error', error.message);
         },
       });
+
+      if (isHost) {
+        const pkg = await webRTCService.createOfferPackage();
+        setLocalSignal(JSON.stringify(pkg));
+        setSignalStep('offer');
+      }
     } catch (error) {
       Alert.alert('Connection Failed', 'Unable to establish secure connection');
       onBack();
@@ -96,6 +128,32 @@ export const PresidentialGameView: React.FC<PresidentialGameViewProps> = ({
 
     await presidentialGame.sendChat(chatInput.trim());
     setChatInput('');
+  };
+
+  const handleApplyRemote = async () => {
+    try {
+      const pkg = JSON.parse(remoteSignal);
+      if (signalStep === 'offer' && !isHost) {
+        // We are the joiner: accept offer and produce answer
+        const ans = await webRTCService.acceptOfferPackage(pkg);
+        setLocalSignal(JSON.stringify(ans));
+        setSignalStep('complete');
+      } else if (signalStep === 'answer' && isHost) {
+        // Host applies answer
+        await webRTCService.applyAnswerPackage(pkg);
+        setSignalStep('complete');
+      }
+    } catch (e) {
+      Alert.alert('Invalid Signal', 'Please paste a valid JSON package.');
+    }
+  };
+
+  const openScanner = async () => {
+    const permission = await check(PERMISSIONS.ANDROID.CAMERA);
+    if (permission !== RESULTS.GRANTED) {
+      await request(PERMISSIONS.ANDROID.CAMERA);
+    }
+    setScannerOpen(true);
   };
 
   const showGameEndAlert = (result: 'win' | 'lose' | 'draw') => {
@@ -152,7 +210,76 @@ export const PresidentialGameView: React.FC<PresidentialGameViewProps> = ({
           <Text style={styles.securityText}>
             🔐 Signal Protocol E2E Encryption
           </Text>
+          <TouchableOpacity style={styles.modalButton} onPress={() => setShowSignalModal(true)}>
+            <Text style={styles.modalButtonText}>Open Manual Signaling</Text>
+          </TouchableOpacity>
         </View>
+
+        <Modal visible={showSignalModal} transparent animationType="slide" onRequestClose={() => setShowSignalModal(false)}>
+          <View style={styles.signalModalOverlay}>
+            <View style={styles.signalModalContent}>
+              <Text style={styles.modalTitle}>Manual Signaling</Text>
+              <Text style={styles.modalSubtitle}>{isHost ? 'Step 1: Share Offer JSON, then paste Answer' : 'Step 1: Paste Offer JSON, then share Answer'}</Text>
+
+              <Text style={styles.signalLabel}>Your {isHost ? 'Offer' : 'Answer'} JSON</Text>
+              <ScrollView style={styles.signalBox}>
+                <Text style={styles.signalText}>{localSignal || 'Generating...'}</Text>
+              </ScrollView>
+
+              <Text style={styles.signalLabel}>Your {isHost ? 'Offer' : 'Answer'} QR</Text>
+              <View style={{ alignItems: 'center', marginBottom: 12 }}>
+                {localSignal ? (
+                  <QRCode value={localSignal} size={180} />
+                ) : null}
+              </View>
+
+              <Text style={styles.signalLabel}>Paste Remote {isHost ? 'Answer' : 'Offer'} JSON</Text>
+              <TextInput
+                style={styles.signalInput}
+                multiline
+                value={remoteSignal}
+                onChangeText={setRemoteSignal}
+                placeholder={isHost ? 'Paste answer JSON here' : 'Paste offer JSON here'}
+              />
+
+              <View style={{ flexDirection: 'row', gap: 12, marginTop: 12 }}>
+                <TouchableOpacity style={[styles.modalButton, { flex: 1 }]} onPress={handleApplyRemote}>
+                  <Text style={styles.modalButtonText}>{signalStep === 'offer' && !isHost ? 'Generate Answer' : 'Apply Remote'}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[styles.joinButton, styles.modalButton, { flex: 1 }]} onPress={() => setShowSignalModal(false)}>
+                  <Text style={styles.modalButtonText}>Close</Text>
+                </TouchableOpacity>
+              </View>
+              <TouchableOpacity style={[styles.modalButton, { marginTop: 8 }]} onPress={openScanner}>
+                <Text style={styles.modalButtonText}>Scan Remote QR</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+
+        {/* QR Scanner Modal */}
+        <Modal visible={scannerOpen} transparent animationType="fade" onRequestClose={() => setScannerOpen(false)}>
+          <View style={styles.signalModalOverlay}>
+            <View style={[styles.signalModalContent, { padding: 0 }] }>
+              <QRCodeScanner
+                onRead={(e: any) => {
+                  try {
+                    setRemoteSignal(e.data);
+                    setScannerOpen(false);
+                  } catch {
+                    Alert.alert('Scan Failed', 'Could not parse QR content');
+                  }
+                }}
+                topContent={<Text style={[styles.modalTitle, { marginTop: 8 }]}>Scan Remote {isHost ? 'Answer' : 'Offer'}</Text>}
+                bottomContent={
+                  <TouchableOpacity style={[styles.modalButton, { margin: 12 }]} onPress={() => setScannerOpen(false)}>
+                    <Text style={styles.modalButtonText}>Cancel</Text>
+                  </TouchableOpacity>
+                }
+              />
+            </View>
+          </View>
+        </Modal>
       </View>
     );
   }
@@ -292,20 +419,12 @@ const styles = StyleSheet.create({
   backButton: {
     padding: 10,
   },
-  backText: {
-    color: '#4CAF50',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
+  backText: { color: '#4CAF50', fontSize: 18, fontWeight: '700' },
   titleContainer: {
     flexDirection: 'row',
     alignItems: 'center',
   },
-  title: {
-    color: '#fff',
-    fontSize: 20,
-    fontWeight: 'bold',
-  },
+  title: { fontSize: 24, fontWeight: '700', color: '#fff' },
   securityBadge: {
     backgroundColor: '#4CAF50',
     paddingHorizontal: 8,
@@ -321,11 +440,7 @@ const styles = StyleSheet.create({
   resignButton: {
     padding: 10,
   },
-  resignText: {
-    color: '#F44336',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
+  resignText: { color: '#f66', fontWeight: '700' },
   boardContainer: {
     alignItems: 'center',
     marginVertical: 20,
@@ -425,4 +540,60 @@ const styles = StyleSheet.create({
     color: '#999',
     fontSize: 12,
   },
+  signalModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.8)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 16,
+  },
+  signalModalContent: {
+    backgroundColor: '#2a2a2a',
+    borderRadius: 16,
+    padding: 16,
+    width: '95%',
+    maxWidth: 520,
+  },
+  modalTitle: { fontSize: 20, fontWeight: '700', color: '#fff', textAlign: 'center', marginBottom: 8 },
+  modalSubtitle: {
+    color: '#aaa',
+    fontSize: 14,
+    textAlign: 'center',
+    marginBottom: 15,
+  },
+  signalLabel: {
+    color: '#aaa',
+    marginTop: 12,
+    marginBottom: 6,
+  },
+  signalBox: {
+    maxHeight: 180,
+    backgroundColor: '#1f1f1f',
+    borderRadius: 8,
+    padding: 8,
+  },
+  signalText: {
+    color: '#e0e0e0',
+    fontSize: 12,
+  },
+  signalInput: {
+    minHeight: 100,
+    backgroundColor: '#1f1f1f',
+    color: '#e0e0e0',
+    borderRadius: 8,
+    padding: 8,
+    textAlignVertical: 'top',
+  },
+  modalButton: {
+    backgroundColor: '#4CAF50',
+    paddingVertical: 12,
+    borderRadius: 10,
+    alignItems: 'center',
+    marginTop: 12,
+  },
+  modalButtonText: { color: '#fff', fontSize: 18, fontWeight: '700' },
+  joinButton: {
+    backgroundColor: '#333',
+  },
+  modalCloseText: { color: '#999', fontSize: 16, fontWeight: '700' },
 });

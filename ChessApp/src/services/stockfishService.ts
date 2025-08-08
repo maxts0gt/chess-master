@@ -5,7 +5,7 @@
  * Provides grandmaster-level analysis in <200ms per move
  */
 
-import { stockfishWorker } from './stockfishWorker';
+import { offlineStockfish } from './offlineStockfishService';
 
 interface EngineOptions {
   threads?: number;
@@ -29,7 +29,7 @@ class StockfishService {
       console.log('Initializing Stockfish engine...');
       
       // Initialize the WASM worker
-      await stockfishWorker.initialize();
+      await offlineStockfish.initialize();
       
       this.initialized = true;
       console.log('Stockfish initialized successfully');
@@ -58,7 +58,8 @@ class StockfishService {
 
     try {
       const depth = options?.depth || this.currentDepth;
-      const move = await stockfishWorker.getBestMove(fen, { depth });
+      const analysis = await offlineStockfish.analyzePosition(fen, { depth });
+      const move = analysis.bestMove || '';
       return move;
     } catch (error) {
       console.error('Stockfish error:', error);
@@ -113,17 +114,14 @@ class StockfishService {
     }
 
     try {
-      const lines = await stockfishWorker.analyze(fen, {
-        multiPV: options?.multiPV || 1,
-        depth: options?.depth || 20
-      });
+      const lines = await offlineStockfish.getTopMoves(fen, options?.multiPV || 1, options?.depth || 20);
       
       if (lines.length > 0) {
         const topLine = lines[0];
         return {
-          evaluation: topLine.score || 0,
-          bestMove: topLine.pv?.split(' ')[0] || '',
-          pv: topLine.pv?.split(' ') || []
+          evaluation: topLine.evaluation || 0,
+          bestMove: topLine.move || '',
+          pv: topLine.line || []
         };
       }
       
@@ -160,15 +158,15 @@ class StockfishService {
         switch (level) {
           case 'beginner':
             this.currentDepth = 6;
-            await stockfishWorker.setSkillLevel(5);
+            // Skill level not supported in offlineStockfish; adjust depth only
             break;
           case 'intermediate':
             this.currentDepth = 10;
-            await stockfishWorker.setSkillLevel(10);
+            // Skill level not supported in offlineStockfish
             break;
           case 'expert':
             this.currentDepth = 12;
-            await stockfishWorker.setSkillLevel(20);
+            // Skill level not supported in offlineStockfish
             break;
         }
       } catch (error) {
@@ -183,7 +181,7 @@ class StockfishService {
   async stop() {
     if (this.initialized) {
       try {
-        await stockfishWorker.stop();
+        // no-op for offlineStockfish
       } catch (error) {
         console.error('Failed to stop engine:', error);
       }
@@ -196,7 +194,7 @@ class StockfishService {
   async terminate() {
     if (this.initialized) {
       try {
-        await stockfishWorker.quit();
+        // no-op for offlineStockfish
       } catch (error) {
         console.error('Failed to terminate engine:', error);
       }

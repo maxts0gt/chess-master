@@ -389,15 +389,16 @@ const styles = StyleSheet.create({
     marginBottom: theme.spacing.md,
   },
   title: {
-    ...theme.typography.headlineLarge,
+    ...(theme.typography.headlineLarge as any),
     color: theme.colors.text.primary,
     textAlign: 'center',
     marginBottom: theme.spacing.sm,
   },
   subtitle: {
-    ...theme.typography.bodyLarge,
+    ...(theme.typography.bodyLarge as any),
     color: theme.colors.text.secondary,
     textAlign: 'center',
+    fontWeight: '400'
   },
   priceBadge: {
     alignItems: 'center',
@@ -410,17 +411,19 @@ const styles = StyleSheet.create({
   priceText: {
     ...theme.typography.displayMedium,
     color: theme.colors.primary.main,
-    fontWeight: 'bold',
+    fontWeight: '700',
   },
   priceSubtext: {
     ...theme.typography.titleMedium,
     color: theme.colors.text.primary,
     marginTop: theme.spacing.xs,
+    fontWeight: '500'
   },
   priceComparison: {
     ...theme.typography.bodyMedium,
     color: theme.colors.text.secondary,
     marginTop: theme.spacing.sm,
+    fontWeight: '400'
   },
   featuresContainer: {
     paddingHorizontal: theme.spacing.lg,
@@ -441,19 +444,21 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   featureTitle: {
-    ...theme.typography.titleMedium,
+    ...(theme.typography.titleMedium as any),
     color: theme.colors.text.primary,
     marginBottom: theme.spacing.xs,
+    fontWeight: '600'
   },
   featureDescription: {
-    ...theme.typography.bodyMedium,
+    ...(theme.typography.bodyMedium as any),
     color: theme.colors.text.secondary,
+    fontWeight: '400'
   },
   testimonialsContainer: {
     marginTop: theme.spacing.xl,
   },
   testimonialsTitle: {
-    ...theme.typography.headlineSmall,
+    ...(theme.typography.headlineSmall as any),
     color: theme.colors.text.primary,
     marginLeft: theme.spacing.lg,
     marginBottom: theme.spacing.md,
@@ -474,14 +479,15 @@ const styles = StyleSheet.create({
     marginBottom: theme.spacing.sm,
   },
   testimonialText: {
-    ...theme.typography.bodyLarge,
+    ...(theme.typography.bodyLarge as any),
     color: theme.colors.text.primary,
     fontStyle: 'italic',
     marginBottom: theme.spacing.sm,
   },
   testimonialAuthor: {
-    ...theme.typography.bodyMedium,
+    ...(theme.typography.bodyMedium as any),
     color: theme.colors.text.secondary,
+    fontWeight: '400'
   },
   valueContainer: {
     flexDirection: 'row',
@@ -493,14 +499,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   valueNumber: {
-    ...theme.typography.headlineLarge,
+    ...(theme.typography.headlineLarge as any),
     color: theme.colors.primary.main,
-    fontWeight: 'bold',
+    fontWeight: '700',
   },
   valueLabel: {
-    ...theme.typography.labelMedium,
+    ...(theme.typography.labelMedium as any),
     color: theme.colors.text.secondary,
     textAlign: 'center',
+    fontWeight: '500'
   },
   ctaContainer: {
     position: 'absolute',
@@ -522,22 +529,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   purchaseButtonText: {
-    ...theme.typography.titleLarge,
+    ...(theme.typography.titleLarge as any),
     color: 'white',
-    fontWeight: 'bold',
+    fontWeight: '700',
   },
   purchaseButtonSubtext: {
-    ...theme.typography.bodyMedium,
+    ...(theme.typography.bodyMedium as any),
     color: 'rgba(255, 255, 255, 0.9)',
     marginTop: theme.spacing.xs,
+    fontWeight: '400'
   },
   restoreButton: {
     alignItems: 'center',
     padding: theme.spacing.md,
   },
   restoreButtonText: {
-    ...theme.typography.labelLarge,
+    ...(theme.typography.labelLarge as any),
     color: theme.colors.primary.main,
+    fontWeight: '600'
   },
   successContainer: {
     flex: 1,
@@ -550,15 +559,17 @@ const styles = StyleSheet.create({
     marginBottom: theme.spacing.lg,
   },
   successTitle: {
-    ...theme.typography.headlineLarge,
+    ...(theme.typography.headlineLarge as any),
     color: theme.colors.text.primary,
     marginBottom: theme.spacing.md,
+    fontWeight: '700'
   },
   successMessage: {
-    ...theme.typography.bodyLarge,
+    ...(theme.typography.bodyLarge as any),
     color: theme.colors.text.secondary,
     textAlign: 'center',
     marginBottom: theme.spacing.xl,
+    fontWeight: '400'
   },
   closeButton: {
     backgroundColor: theme.colors.primary.main,
@@ -567,9 +578,9 @@ const styles = StyleSheet.create({
     borderRadius: theme.borderRadius.full,
   },
   closeButtonText: {
-    ...theme.typography.labelLarge,
+    ...(theme.typography.labelLarge as any),
     color: 'white',
-    fontWeight: 'bold',
+    fontWeight: '700',
   },
   downloadContainer: {
     flex: 1,
@@ -578,9 +589,10 @@ const styles = StyleSheet.create({
     padding: theme.spacing.xl,
   },
   downloadTitle: {
-    ...theme.typography.headlineMedium,
+    ...(theme.typography.headlineMedium as any),
     color: theme.colors.text.primary,
     marginBottom: theme.spacing.lg,
+    fontWeight: '700'
   },
   progressBar: {
     width: '80%',
@@ -595,13 +607,19 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.primary.main,
   },
   progressText: {
-    ...theme.typography.titleLarge,
+    ...(theme.typography.titleLarge as any),
     color: theme.colors.text.primary,
-    fontWeight: 'bold',
+    fontWeight: '700',
     marginBottom: theme.spacing.md,
   },
   downloadTip: {
-    ...theme.typography.bodyMedium,
+    ...(theme.typography.bodyMedium as any),
     color: theme.colors.text.secondary,
+    fontWeight: '400'
   },
+  paywallTitle: { color: theme.colors.text.primary, textAlign: 'center', fontSize: 20, lineHeight: 26, fontWeight: '700', letterSpacing: 0.3 },
+  paywallSubtitle: { color: theme.colors.text.secondary, textAlign: 'center', fontSize: 14, lineHeight: 18, fontWeight: '400', letterSpacing: 0.2 },
+  ctaText: { color: theme.colors.primary.contrast, fontSize: 16, lineHeight: 20, fontWeight: '600', letterSpacing: 0.2, textAlign: 'center' },
+  restoreText: { color: theme.colors.text.secondary, textAlign: 'center', fontSize: 12, lineHeight: 16, fontWeight: '400', letterSpacing: 0.2 },
+  sectionTitle: { color: theme.colors.text.primary, fontSize: 16, lineHeight: 20, fontWeight: '600', letterSpacing: 0.2 },
 });

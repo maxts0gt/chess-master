@@ -77,7 +77,7 @@ class MistralChessService {
       });
 
       // Create context with chess-optimized parameters
-      this.context = await LlamaContext.create({
+      this.context = await (LlamaContext as any).create({
         n_ctx: config.contextSize,
         n_threads: config.threads,
         temp: config.temperature,
@@ -117,20 +117,22 @@ class MistralChessService {
     });
   }
 
-  private buildChessPrompt(fen: string, lastMove: string | null, playerRating: number): string {
+  private buildChessPrompt(fen: string, lastMove: string | null, playerRating: number, opts?: { pv?: string[]; threatSquares?: string[] }): string {
+    const pvText = opts?.pv && opts.pv.length ? `\nEngine PV: ${opts.pv.slice(0,5).join(' ')}` : '';
+    const threatText = opts?.threatSquares && opts.threatSquares.length ? `\nThreat squares: ${opts.threatSquares.join(', ')}` : '';
     return `You are an expert chess coach analyzing positions for a ${playerRating}-rated player.
 
 Current position (FEN): ${fen}
-Last move played: ${lastMove || 'Starting position'}
+Last move played: ${lastMove || 'Starting position'}${pvText}${threatText}
 
 Provide a brief analysis focusing on:
-1. Position evaluation
-2. Best moves (top 3)
-3. Strategic concepts
-4. Tactical opportunities
-5. Common mistakes to avoid
+1. Position evaluation in plain language (aligned with the engine PV)
+2. Best moves (top 3) and why they work
+3. Immediate tactical threats involving the given squares
+4. A short plan for the next few moves
+5. One learning takeaway
 
-Keep explanations clear and educational. Use chess notation.
+Keep explanations clear and educational. Use chess notation. Keep it under 120 words.
 
 Analysis:`;
   }
@@ -138,38 +140,28 @@ Analysis:`;
   async analyzePosition(
     fen: string,
     lastMove: string | null = null,
-    playerRating: number = 1500
+    playerRating: number = 1500,
+    opts?: { pv?: string[]; threatSquares?: string[] }
   ): Promise<ChessAnalysis> {
     if (!this.isInitialized || !this.context) {
       throw new Error('Mistral service not initialized');
     }
 
     // Check cache first
-    const cacheKey = `${fen}-${playerRating}`;
+    const cacheKey = `${fen}-${playerRating}-${(opts?.pv||[]).slice(0,3).join('-')}-${(opts?.threatSquares||[]).join('-')}`;
     if (this.analysisCache.has(cacheKey)) {
       return this.analysisCache.get(cacheKey)!;
     }
 
     try {
-      const prompt = this.buildChessPrompt(fen, lastMove, playerRating);
-      
-      const response = await this.context.completion({
-        prompt,
-        n_predict: 400,
-        stop: ['\n\n', 'Human:', 'User:'],
-      });
-
+      const prompt = this.buildChessPrompt(fen, lastMove, playerRating, opts);
+      const response = await this.context.completion({ prompt, n_predict: 400, stop: ['\n\n', 'Human:', 'User:'] });
       const analysis = this.parseAnalysis(response.text);
-      
-      // Cache the result
       this.analysisCache.set(cacheKey, analysis);
-      
-      // Limit cache size
       if (this.analysisCache.size > 100) {
         const firstKey = this.analysisCache.keys().next().value;
         this.analysisCache.delete(firstKey);
       }
-
       return analysis;
     } catch (error) {
       console.error('Analysis failed:', error);

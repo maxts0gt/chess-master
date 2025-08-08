@@ -8,7 +8,7 @@ import {
   Alert,
   Animated,
 } from 'react-native';
-import { Chess } from 'chess.js';
+import { Chess, Square } from 'chess.js';
 
 interface ChessBoardProps {
   fen?: string;
@@ -77,16 +77,16 @@ const ChessBoard: React.FC<ChessBoardProps> = ({
   const handleSquarePress = (square: string) => {
     if (!playable) return;
 
-    const piece = game.get(square);
+    const piece = game.get(square as Square);
     
     if (selectedSquare) {
       // Try to move
       try {
         const move = game.move({
-          from: selectedSquare,
-          to: square,
+          from: selectedSquare as Square,
+          to: square as Square,
           promotion: 'q', // Always promote to queen for simplicity
-        });
+        } as any);
 
         if (move) {
           setLastMove({ from: selectedSquare, to: square });
@@ -99,7 +99,7 @@ const ChessBoard: React.FC<ChessBoardProps> = ({
           // Invalid move, select new piece if it's the player's
           if (piece && piece.color === game.turn()) {
             setSelectedSquare(square);
-            const moves = game.moves({ square, verbose: true });
+            const moves = game.moves({ square: square as Square, verbose: true } as any) as any[];
             setValidMoves(moves.map(m => m.to));
           } else {
             setSelectedSquare(null);
@@ -115,7 +115,7 @@ const ChessBoard: React.FC<ChessBoardProps> = ({
       // Select piece
       if (piece && piece.color === game.turn()) {
         setSelectedSquare(square);
-        const moves = game.moves({ square, verbose: true });
+        const moves = game.moves({ square: square as Square, verbose: true } as any) as any[];
         setValidMoves(moves.map(m => m.to));
       }
     }
@@ -123,8 +123,9 @@ const ChessBoard: React.FC<ChessBoardProps> = ({
 
   const renderSquare = (row: number, col: number) => {
     const square = indicesToSquare(row, col);
-    const piece = game.get(square);
+    const piece = game.get(square as Square);
     const highlight = getSquareHighlight(square);
+    const highlightStyle = highlight ? { backgroundColor: highlight } : undefined;
 
     return (
       <TouchableOpacity
@@ -136,7 +137,7 @@ const ChessBoard: React.FC<ChessBoardProps> = ({
             width: squareSize,
             height: squareSize,
           },
-          highlight && { backgroundColor: highlight },
+          highlightStyle,
         ]}
         onPress={() => handleSquarePress(square)}
         activeOpacity={0.8}
@@ -198,7 +199,7 @@ const styles = StyleSheet.create({
   },
   piece: {
     color: '#000',
-    fontWeight: 'bold',
+    fontWeight: '700',
   },
   fileLabel: {
     position: 'absolute',

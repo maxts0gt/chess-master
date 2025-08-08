@@ -10,7 +10,7 @@ import {
   requestPurchase,
   getAvailablePurchases,
   finishTransaction,
-  Purchase,
+  Purchase as AnyPurchase,
   Product,
   PurchaseError,
 } from 'react-native-iap';
@@ -19,6 +19,8 @@ import { Platform, Alert } from 'react-native';
 import NetInfo from '@react-native-community/netinfo';
 import RNFS from 'react-native-fs';
 import { mistralChess } from './mistralService';
+import { sha256 } from 'react-native-sha256';
+import { modelManifest } from './modelManifestService';
 
 // Product IDs
 const PRODUCTS = {
@@ -55,6 +57,7 @@ const STORAGE_KEYS = {
 // Model download URL (you'll need to host this)
 const AI_MODEL_URL = 'https://your-cdn.com/models/mistral-3b-chess-q4.gguf';
 const AI_MODEL_SIZE = 1.5 * 1024 * 1024 * 1024; // 1.5GB
+const AI_MODEL_SHA256 = 'REPLACE_WITH_REAL_SHA256';
 
 interface PremiumState {
   hasAICoach: boolean;
@@ -200,8 +203,9 @@ class PremiumService {
       });
 
       // Verify and finish transaction
-      if (purchase) {
-        await finishTransaction({ purchase, isConsumable: false });
+      const normalized = Array.isArray(purchase) ? purchase[0] : purchase;
+      if (normalized) {
+        await finishTransaction({ purchase: normalized as AnyPurchase, isConsumable: false });
         
         // Update state
         this.state.hasAICoach = true;
@@ -380,54 +384,59 @@ class PremiumService {
     }
 
     try {
-      const modelPath = `${RNFS.DocumentDirectoryPath}/mistral-3b-chess.gguf`;
+      const target = await modelManifest.chooseModel(true);
+      const modelPath = `${RNFS.DocumentDirectoryPath}/${target.name}.gguf`;
       
-      // Start download
+      // Ensure enough free space (size + 1GB headroom)
+      const fsInfo = await RNFS.getFSInfo();
+      if (fsInfo.freeSpace < target.size_bytes + 1 * 1024 * 1024 * 1024) {
+        Alert.alert('Not Enough Space', 'Please free up storage to download the AI model.');
+        return;
+      }
+
+      // Fresh download using RNFS
       this.downloadTask = RNFS.downloadFile({
-        fromUrl: AI_MODEL_URL,
+        fromUrl: target.url,
         toFile: modelPath,
         background: true,
         discretionary: true,
         cacheable: false,
         progressDivider: 1,
-        begin: (res) => {
-          console.log('Download started:', res);
-        },
+        begin: () => {},
         progress: (res) => {
           const progress = res.bytesWritten / res.contentLength;
           this.state.downloadProgress = progress;
           this.notifyListeners();
         },
       });
-
       const result = await this.downloadTask.promise;
-      
-      if (result.statusCode === 200) {
-        // Save model path
-        await AsyncStorage.setItem(STORAGE_KEYS.AI_MODEL_PATH, modelPath);
-        
-        // Update state
-        this.state.isModelDownloaded = true;
-        this.state.downloadProgress = 1;
-        this.notifyListeners();
-        
-        // Initialize AI
-        await mistralChess.initialize('mistral-3b-chess', modelPath);
-        
-        Alert.alert(
-          '✅ AI Coach Ready!',
-          'Your AI coach is ready to help you improve your chess!',
-          [{ text: 'Start Playing', onPress: () => {} }]
-        );
-      } else {
-        throw new Error('Download failed');
+      if (!(result.statusCode === 200)) throw new Error('Download failed');
+
+      // Verify checksum
+      if (target.sha256 && target.sha256.length > 10) {
+        try {
+          const fileHash = await (RNFS as any).hash ? await (RNFS as any).hash(modelPath) : '';
+          if (fileHash.toLowerCase() !== target.sha256.toLowerCase()) {
+            await RNFS.unlink(modelPath);
+            throw new Error('Checksum mismatch');
+          }
+        } catch (e) {
+          Alert.alert('Checksum Failed', 'Model file failed verification. Please retry.');
+          this.state.downloadProgress = 0;
+          this.notifyListeners();
+          return;
+        }
       }
+
+      await AsyncStorage.setItem(STORAGE_KEYS.AI_MODEL_PATH, modelPath);
+      this.state.isModelDownloaded = true;
+      this.state.downloadProgress = 1;
+      this.notifyListeners();
+      await mistralChess.initialize('mistral-3b-chess');
+      Alert.alert('✅ AI Coach Ready!', 'Your AI coach is ready to help you improve your chess!');
     } catch (error) {
       console.error('Failed to download AI model:', error);
-      Alert.alert(
-        'Download Failed',
-        'Unable to download AI model. Please check your connection and try again.'
-      );
+      Alert.alert('Download Failed', 'Unable to download AI model. Please check your connection and try again.');
       this.state.downloadProgress = 0;
       this.notifyListeners();
     }

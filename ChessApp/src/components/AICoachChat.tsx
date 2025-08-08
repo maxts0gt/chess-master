@@ -23,6 +23,7 @@ import { mistralChess } from '../services/mistralService';
 import { premiumService } from '../services/premiumService';
 import { voiceService } from '../services/voiceService';
 import { hapticService } from '../services/hapticService';
+import { coachFacade } from '../services/coach';
 
 interface Message {
   id: string;
@@ -154,8 +155,9 @@ export const AICoachChat: React.FC<AICoachChatProps> = ({
     hapticService.uiFeedback();
 
     // Add typing indicator
+    const typingId = `typing-${Date.now()}`;
     const typingMessage: Message = {
-      id: `typing-${Date.now()}`,
+      id: typingId,
       text: '',
       sender: 'ai',
       timestamp: new Date(),
@@ -166,34 +168,29 @@ export const AICoachChat: React.FC<AICoachChatProps> = ({
     try {
       // Get AI response with context
       const context = `Current position: ${fen}${lastMove ? `\nLast move: ${lastMove}` : ''}`;
-      const response = await mistralChess.askQuestion(context, text);
+      let aggregated = '';
+      for await (const token of coachFacade.askQuestionStream(context, text)) {
+        aggregated += token;
+        setMessages(prev => prev.map(m => m.id === typingId ? { ...m, text: aggregated } : m));
+      }
 
-      // Remove typing indicator and add response
+      // Haptic + voice on completion
       setMessages(prev => {
-        const filtered = prev.filter(m => !m.typing);
-        const aiMessage: Message = {
-          id: Date.now().toString(),
-          text: response,
-          sender: 'ai',
-          timestamp: new Date(),
-        };
-        
-        // Voice feedback for AI response
-        if (voiceService.isEnabled()) {
-          // Get current AI personality
-          const personality = await AsyncStorage.getItem('@ChessApp:AIPersonality') || 'coach';
-          voiceService.speak(response, personality);
+        const finalized = prev.map(m => m.id === typingId ? { ...m, typing: false } : m);
+        const aiMessage = finalized.find(m => m.id === typingId);
+        if (aiMessage && voiceService.isEnabled()) {
+          (async () => {
+            const personality = await AsyncStorage.getItem('@ChessApp:AIPersonality') || 'coach';
+            voiceService.speak(aiMessage.text, personality);
+          })();
         }
-        
-        // Haptic feedback for AI response
         hapticService.aiFeedback();
-        
-        return [...filtered, aiMessage];
+        return finalized;
       });
     } catch (error) {
       console.error('AI response error:', error);
       setMessages(prev => {
-        const filtered = prev.filter(m => !m.typing);
+        const filtered = prev.filter(m => m.id !== typingId);
         const errorMessage: Message = {
           id: Date.now().toString(),
           text: "I'm having trouble analyzing this position. Please try again.",
@@ -416,10 +413,12 @@ const styles = StyleSheet.create({
   headerTitle: {
     ...theme.typography.titleLarge,
     color: theme.colors.text.primary,
+    fontWeight: '700'
   },
   headerSubtitle: {
     ...theme.typography.bodySmall,
     color: theme.colors.text.secondary,
+    fontWeight: '400'
   },
   closeButton: {
     padding: theme.spacing.sm,
@@ -456,6 +455,7 @@ const styles = StyleSheet.create({
   messageText: {
     ...theme.typography.bodyMedium,
     color: theme.colors.text.primary,
+    fontWeight: '400'
   },
   userMessageText: {
     color: theme.colors.primary.contrast,
@@ -464,6 +464,7 @@ const styles = StyleSheet.create({
     ...theme.typography.labelSmall,
     color: theme.colors.text.hint,
     marginTop: theme.spacing.xs,
+    fontWeight: '400'
   },
   typingIndicator: {
     flexDirection: 'row',
@@ -502,6 +503,7 @@ const styles = StyleSheet.create({
   quickPromptText: {
     ...theme.typography.labelMedium,
     color: theme.colors.text.primary,
+    fontWeight: '500'
   },
   inputContainer: {
     flexDirection: 'row',
@@ -521,6 +523,7 @@ const styles = StyleSheet.create({
     maxHeight: 100,
     ...theme.typography.bodyMedium,
     color: theme.colors.text.primary,
+    fontWeight: '400'
   },
   sendButton: {
     width: 40,
@@ -536,7 +539,7 @@ const styles = StyleSheet.create({
   sendIcon: {
     fontSize: 20,
     color: theme.colors.primary.contrast,
-    fontWeight: 'bold',
+        fontWeight: '700',
   },
   upgradePrompt: {
     flex: 1,
@@ -553,6 +556,7 @@ const styles = StyleSheet.create({
     color: theme.colors.text.secondary,
     textAlign: 'center',
     marginBottom: theme.spacing.lg,
+    fontWeight: '400'
   },
   upgradeButton: {
     backgroundColor: theme.colors.primary.main,
@@ -562,7 +566,35 @@ const styles = StyleSheet.create({
   },
   upgradeButtonText: {
     ...theme.typography.labelLarge,
-    color: theme.colors.primary.contrast,
-    fontWeight: 'bold',
+        color: theme.colors.primary.contrast,
+    fontWeight: '700',
+  },
+  systemMessage: {
+    color: '#999',
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: '400',
+    letterSpacing: 0.2,
+  },
+  userText: {
+    color: '#fff',
+    fontSize: 16,
+    lineHeight: 22,
+    fontWeight: '500',
+    letterSpacing: 0.1,
+  },
+  aiText: {
+    color: '#ddd',
+    fontSize: 16,
+    lineHeight: 22,
+    fontWeight: '400',
+    letterSpacing: 0.1,
+  },
+  footerHint: {
+    color: '#aaa',
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: '400',
+    letterSpacing: 0.2,
   },
 });
