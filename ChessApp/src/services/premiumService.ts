@@ -393,61 +393,23 @@ class PremiumService {
         return;
       }
 
-      // Resume if partial file exists
-      let resumeAt = 0;
-      if (await RNFS.exists(modelPath)) {
-        const stat = await RNFS.stat(modelPath);
-        resumeAt = Number(stat.size);
-      }
-
-      const headers: Record<string, string> = {};
-      if (resumeAt > 0) {
-        headers['Range'] = `bytes=${resumeAt}-`;
-      }
-
-      // RNFS does not support custom headers in downloadFile across all platforms; fallback to manual fetch + append
-      if (resumeAt > 0) {
-        const res = await fetch(target.url, { headers });
-        if (!(res.status === 206 || res.status === 200)) throw new Error('Resume failed');
-        const reader = (res as any).body?.getReader?.();
-        if (reader) {
-          // Stream to file by appending
-          const fileHandle = await RNFS.appendFile(modelPath, '', 'base64');
-          let received = resumeAt;
-          for (;;) {
-            const chunk = await reader.read();
-            if (chunk.done) break;
-            // chunk.value is Uint8Array; write as base64
-            const b64 = Buffer.from(chunk.value).toString('base64');
-            await RNFS.appendFile(modelPath, b64, 'base64');
-            received += chunk.value.length;
-            this.state.downloadProgress = received / target.size_bytes;
-            this.notifyListeners();
-          }
-        } else {
-          // Fallback: full re-download
-          resumeAt = 0;
-        }
-      }
-
-      if (resumeAt === 0) {
-        this.downloadTask = RNFS.downloadFile({
-          fromUrl: target.url,
-          toFile: modelPath,
-          background: true,
-          discretionary: true,
-          cacheable: false,
-          progressDivider: 1,
-          begin: () => {},
-          progress: (res) => {
-            const progress = res.bytesWritten / res.contentLength;
-            this.state.downloadProgress = progress;
-            this.notifyListeners();
-          },
-        });
-        const result = await this.downloadTask.promise;
-        if (!(result.statusCode === 200)) throw new Error('Download failed');
-      }
+      // Fresh download using RNFS
+      this.downloadTask = RNFS.downloadFile({
+        fromUrl: target.url,
+        toFile: modelPath,
+        background: true,
+        discretionary: true,
+        cacheable: false,
+        progressDivider: 1,
+        begin: () => {},
+        progress: (res) => {
+          const progress = res.bytesWritten / res.contentLength;
+          this.state.downloadProgress = progress;
+          this.notifyListeners();
+        },
+      });
+      const result = await this.downloadTask.promise;
+      if (!(result.statusCode === 200)) throw new Error('Download failed');
 
       // Verify checksum
       if (target.sha256 && target.sha256.length > 10) {
