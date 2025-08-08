@@ -342,16 +342,8 @@ const styles = StyleSheet.create({
     fontSize: 100,
     marginBottom: theme.spacing.lg,
   },
-  modelTitle: {
-    ...theme.typography.headlineLarge,
-    color: theme.colors.text.primary,
-    marginBottom: theme.spacing.sm,
-  },
-  modelSize: {
-    ...theme.typography.titleLarge,
-    color: theme.colors.text.secondary,
-    marginBottom: theme.spacing.xl,
-  },
+  modelTitle: { color: theme.colors.text.primary, textAlign: 'center', fontSize: 18, lineHeight: 22, fontWeight: '600', letterSpacing: 0.2 },
+  modelSize: { color: theme.colors.text.secondary, textAlign: 'center', fontSize: 14, lineHeight: 18, fontWeight: '400', letterSpacing: 0.2 },
   warningBox: {
     backgroundColor: theme.colors.surface.elevated,
     padding: theme.spacing.lg,
@@ -430,11 +422,7 @@ const styles = StyleSheet.create({
     fontSize: 80,
     marginBottom: theme.spacing.lg,
   },
-  downloadTitle: {
-    ...theme.typography.headlineMedium,
-    color: theme.colors.text.primary,
-    marginBottom: theme.spacing.xl,
-  },
+  downloadTitle: { color: theme.colors.text.primary, textAlign: 'center', fontSize: 18, lineHeight: 22, fontWeight: '500', letterSpacing: 0.2 },
   progressContainer: {
     width: '100%',
     marginBottom: theme.spacing.md,
@@ -450,12 +438,7 @@ const styles = StyleSheet.create({
     height: '100%',
     backgroundColor: theme.colors.primary.main,
   },
-  progressText: {
-    ...theme.typography.headlineSmall,
-    color: theme.colors.text.primary,
-    textAlign: 'center',
-    fontWeight: 'bold',
-  },
+  progressText: { color: theme.colors.text.secondary, fontSize: 12, lineHeight: 16, fontWeight: '400', letterSpacing: 0.2 },
   downloadStats: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -466,12 +449,7 @@ const styles = StyleSheet.create({
     color: theme.colors.text.secondary,
     marginHorizontal: theme.spacing.sm,
   },
-  downloadTip: {
-    ...theme.typography.bodyMedium,
-    color: theme.colors.text.secondary,
-    textAlign: 'center',
-    marginBottom: theme.spacing.xl,
-  },
+  downloadTip: { color: theme.colors.text.secondary, fontSize: 12, lineHeight: 16, fontWeight: '400', letterSpacing: 0.2 },
   cancelButton: {
     padding: theme.spacing.md,
   },

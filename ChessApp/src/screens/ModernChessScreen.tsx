@@ -76,7 +76,7 @@ export const ModernChessScreen: React.FC = () => {
   const [timeControl, setTimeControl] = useState<{ minutes: number; increment: number }>({ minutes: 10, increment: 0 });
   const [whiteTimeMs, setWhiteTimeMs] = useState(timeControl.minutes * 60 * 1000);
   const [blackTimeMs, setBlackTimeMs] = useState(timeControl.minutes * 60 * 1000);
-  const timerRef = useRef<NodeJS.Timer | null>(null);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   
   // Mistake detection
   const [mistakeDelta, setMistakeDelta] = useState<number | null>(null);
@@ -641,7 +641,7 @@ const styles = StyleSheet.create({
   title: {
     ...theme.typography.headlineMedium,
     color: theme.colors.text.primary,
-    fontWeight: 'bold',
+    fontWeight: '700',
   },
   aiIndicator: {
     backgroundColor: theme.colors.success + '20',
@@ -652,7 +652,7 @@ const styles = StyleSheet.create({
   aiIndicatorText: {
     ...theme.typography.labelMedium,
     color: theme.colors.success,
-    fontWeight: 'bold',
+    fontWeight: '700',
   },
   upgradeButton: {
     backgroundColor: theme.colors.secondary.main,
@@ -663,7 +663,7 @@ const styles = StyleSheet.create({
   upgradeButtonText: {
     ...theme.typography.labelMedium,
     color: theme.colors.secondary.contrast,
-    fontWeight: 'bold',
+    fontWeight: '700',
   },
   turnIndicator: {
     flexDirection: 'row',
@@ -800,7 +800,7 @@ const styles = StyleSheet.create({
   mistakeButtonText: {
     ...theme.typography.labelSmall,
     color: theme.colors.primary.contrast,
-    fontWeight: 'bold',
+    fontWeight: '700',
   },
   explainOverlay: {
     flex: 1,
@@ -820,6 +820,7 @@ const styles = StyleSheet.create({
     ...theme.typography.titleMedium,
     color: theme.colors.text.primary,
     marginBottom: theme.spacing.sm,
+    fontWeight: '700'
   },
   explainBody: {
     ...theme.typography.bodyMedium,

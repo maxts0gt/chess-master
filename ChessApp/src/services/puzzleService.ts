@@ -177,7 +177,7 @@ class PuzzleService {
     moves.forEach(move => chess.move(move));
     
     // Find critical positions using Stockfish
-    const analysis = await offlineStockfish.analyze(chess.fen(), 20);
+    const analysis = await offlineStockfish.analyzePosition(chess.fen(), { depth: 20 });
     
     // Look for positions with sharp tactical content
     const tacticalMoves = await this.findTacticalMoves(chess.fen());
@@ -224,14 +224,14 @@ class PuzzleService {
     const moves: string[] = [];
     
     // Get best line from Stockfish
-    const analysis = await offlineStockfish.analyze(fen, 20);
+    const analysis = await offlineStockfish.analyzePosition(fen, { depth: 20 });
     if (!analysis.bestMove) return [];
     
     // Check if the best move leads to significant advantage
     const currentEval = analysis.evaluation;
     chess.move(analysis.bestMove);
     
-    const afterMoveAnalysis = await offlineStockfish.analyze(chess.fen(), 15);
+    const afterMoveAnalysis = await offlineStockfish.analyzePosition(chess.fen(), { depth: 15 });
     const evalDiff = Math.abs(afterMoveAnalysis.evaluation - currentEval);
     
     // If significant material/positional gain, it's likely tactical
@@ -241,7 +241,7 @@ class PuzzleService {
       // Get the continuation
       if (afterMoveAnalysis.bestMove) {
         chess.move(afterMoveAnalysis.bestMove);
-        const continuation = await offlineStockfish.analyze(chess.fen(), 15);
+        const continuation = await offlineStockfish.analyzePosition(chess.fen(), { depth: 15 });
         if (continuation.bestMove) {
           moves.push(afterMoveAnalysis.bestMove, continuation.bestMove);
         }

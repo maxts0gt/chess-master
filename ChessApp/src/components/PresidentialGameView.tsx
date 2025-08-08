@@ -419,20 +419,12 @@ const styles = StyleSheet.create({
   backButton: {
     padding: 10,
   },
-  backText: {
-    color: '#4CAF50',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
+  backText: { color: '#4CAF50', fontSize: 18, fontWeight: '700' },
   titleContainer: {
     flexDirection: 'row',
     alignItems: 'center',
   },
-  title: {
-    color: '#fff',
-    fontSize: 20,
-    fontWeight: 'bold',
-  },
+  title: { fontSize: 24, fontWeight: '700', color: '#fff' },
   securityBadge: {
     backgroundColor: '#4CAF50',
     paddingHorizontal: 8,
@@ -448,11 +440,7 @@ const styles = StyleSheet.create({
   resignButton: {
     padding: 10,
   },
-  resignText: {
-    color: '#F44336',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
+  resignText: { color: '#f66', fontWeight: '700' },
   boardContainer: {
     alignItems: 'center',
     marginVertical: 20,
@@ -566,13 +554,7 @@ const styles = StyleSheet.create({
     width: '95%',
     maxWidth: 520,
   },
-  modalTitle: {
-    color: '#fff',
-    fontSize: 20,
-    fontWeight: 'bold',
-    textAlign: 'center',
-    marginBottom: 8,
-  },
+  modalTitle: { fontSize: 20, fontWeight: '700', color: '#fff', textAlign: 'center', marginBottom: 8 },
   modalSubtitle: {
     color: '#aaa',
     fontSize: 14,
@@ -609,11 +591,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 12,
   },
-  modalButtonText: {
-    color: '#fff',
-    fontWeight: 'bold',
-  },
+  modalButtonText: { color: '#fff', fontSize: 18, fontWeight: '700' },
   joinButton: {
     backgroundColor: '#333',
   },
+  modalCloseText: { color: '#999', fontSize: 16, fontWeight: '700' },
 });

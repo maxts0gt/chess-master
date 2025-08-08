@@ -604,4 +604,9 @@ const styles = StyleSheet.create({
     ...theme.typography.bodyMedium,
     color: theme.colors.text.secondary,
   },
+  paywallTitle: { color: theme.colors.text.primary, textAlign: 'center', fontSize: 20, lineHeight: 26, fontWeight: '700', letterSpacing: 0.3 },
+  paywallSubtitle: { color: theme.colors.text.secondary, textAlign: 'center', fontSize: 14, lineHeight: 18, fontWeight: '400', letterSpacing: 0.2 },
+  ctaText: { color: theme.colors.primary.contrast, fontSize: 16, lineHeight: 20, fontWeight: '600', letterSpacing: 0.2, textAlign: 'center' },
+  restoreText: { color: theme.colors.text.secondary, textAlign: 'center', fontSize: 12, lineHeight: 16, fontWeight: '400', letterSpacing: 0.2 },
+  sectionTitle: { color: theme.colors.text.primary, fontSize: 16, lineHeight: 20, fontWeight: '600', letterSpacing: 0.2 },
 });

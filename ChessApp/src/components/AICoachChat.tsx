@@ -533,7 +533,7 @@ const styles = StyleSheet.create({
   sendIcon: {
     fontSize: 20,
     color: theme.colors.primary.contrast,
-    fontWeight: 'bold',
+        fontWeight: '700',
   },
   upgradePrompt: {
     flex: 1,
@@ -559,8 +559,8 @@ const styles = StyleSheet.create({
   },
   upgradeButtonText: {
     ...theme.typography.labelLarge,
-    color: theme.colors.primary.contrast,
-    fontWeight: 'bold',
+        color: theme.colors.primary.contrast,
+    fontWeight: '700',
   },
   systemMessage: {
     color: '#999',

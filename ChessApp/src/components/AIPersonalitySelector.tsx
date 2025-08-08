@@ -296,8 +296,19 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     ...theme.typography.bodyLarge,
-    color: theme.colors.text.secondary,
+    color: '#aaa',
     textAlign: 'center',
+    fontSize: 14,
+    lineHeight: 18,
+    fontWeight: '400',
+    letterSpacing: 0.2,
+  },
+  footer: {
+    color: '#888',
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: '400',
+    letterSpacing: 0.2,
   },
   scrollContent: {
     paddingHorizontal: (Dimensions.get('window').width * 0.1) / 2,

@@ -338,7 +338,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 32,
-    fontWeight: 'bold',
+    fontWeight: '700',
     color: '#FFF',
     textAlign: 'center',
     marginBottom: 20,
@@ -401,7 +401,7 @@ const styles = StyleSheet.create({
   comparisonPrice: {
     color: '#FFF',
     fontSize: 22,
-    fontWeight: 'bold',
+    fontWeight: '700',
   },
   comparisonVs: {
     paddingHorizontal: 15,
@@ -409,7 +409,7 @@ const styles = StyleSheet.create({
   vsText: {
     color: 'rgba(255, 255, 255, 0.6)',
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: '700',
   },
   bottomContainer: {
     paddingBottom: 40,
@@ -442,6 +442,6 @@ const styles = StyleSheet.create({
   buttonText: {
     color: '#FFF',
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: '700',
   },
 });

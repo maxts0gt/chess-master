@@ -713,4 +713,8 @@ const styles = StyleSheet.create({
     color: theme.colors.primary.contrast,
     fontWeight: 'bold',
   },
+  headerTitle: { color: theme.colors.text.primary, fontSize: 18, lineHeight: 22, fontWeight: '700' },
+  scoreText: { color: theme.colors.text.primary, fontSize: 16, lineHeight: 20, fontWeight: '700' },
+  resultTitle: { color: theme.colors.text.primary, fontSize: 18, lineHeight: 22, fontWeight: '700' },
+  resultValue: { color: theme.colors.text.primary, fontSize: 22, lineHeight: 26, fontWeight: '700' },
 });
