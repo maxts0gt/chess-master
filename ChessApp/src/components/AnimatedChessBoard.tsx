@@ -13,7 +13,7 @@ import {
   Vibration,
   Platform,
 } from 'react-native';
-import { Chess } from 'chess.js';
+import { Chess, Square } from 'chess.js';
 import { theme } from '../styles/theme';
 import Svg, { Line, Circle, Marker, Path, Defs } from 'react-native-svg';
 
@@ -203,6 +203,7 @@ export const AnimatedChessBoard: React.FC<AnimatedChessBoardProps> = ({
 
   const renderSquare = (file: number, rank: number) => {
     const square = String.fromCharCode(97 + file) + (8 - rank);
+    const piece = new Chess(fen).get(square as Square);
     const isLight = (file + rank) % 2 === 0;
     const isHighlighted = highlightedSquares.includes(square);
     const isSelected = selectedSquare === square;

@@ -56,7 +56,7 @@ const styles = StyleSheet.create({
   moveSan: { flex: 1, color: theme.colors.text.primary },
   moveEval: { width: 80, textAlign: 'right', color: theme.colors.text.secondary },
   drillBtn: { marginLeft: 8, backgroundColor: theme.colors.primary.main, borderRadius: 16, paddingHorizontal: 12, paddingVertical: 4 },
-  drillText: { color: theme.colors.primary.contrast, ...theme.typography.labelSmall },
+  drillText: { color: theme.colors.primary.contrast, ...(theme.typography.labelSmall as any), fontWeight: '500' },
   closeBtn: { margin: theme.spacing.lg, alignItems: 'center', padding: theme.spacing.md, backgroundColor: theme.colors.surface.elevated, borderRadius: 12 },
-  closeText: { color: theme.colors.text.primary, ...theme.typography.labelMedium },
+  closeText: { color: theme.colors.text.primary, ...(theme.typography.labelMedium as any), fontWeight: '500' },
 });

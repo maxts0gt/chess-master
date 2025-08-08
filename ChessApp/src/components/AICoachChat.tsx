@@ -562,4 +562,32 @@ const styles = StyleSheet.create({
     color: theme.colors.primary.contrast,
     fontWeight: 'bold',
   },
+  systemMessage: {
+    color: '#999',
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: '400',
+    letterSpacing: 0.2,
+  },
+  userText: {
+    color: '#fff',
+    fontSize: 16,
+    lineHeight: 22,
+    fontWeight: '500',
+    letterSpacing: 0.1,
+  },
+  aiText: {
+    color: '#ddd',
+    fontSize: 16,
+    lineHeight: 22,
+    fontWeight: '400',
+    letterSpacing: 0.1,
+  },
+  footerHint: {
+    color: '#aaa',
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: '400',
+    letterSpacing: 0.2,
+  },
 });
