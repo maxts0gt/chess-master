@@ -28,7 +28,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { theme } from '../styles/theme';
 import { PremiumScreen } from './PremiumScreen';
 import { AICoachChat } from '../components/AICoachChat';
-import { aiConfigService } from '../services/ai/AIConfigService';
+import { historyService, GameReview, MoveReviewItem } from '../services/historyService';
+import { ReviewScreen } from './ReviewScreen';
+import { AIMode, aiConfigService } from '../services/ai/AIConfigService';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
@@ -67,6 +69,8 @@ export const ModernChessScreen: React.FC = () => {
   const [showAIChat, setShowAIChat] = useState(false);
   const [bestLineUci, setBestLineUci] = useState<string[]>([]);
   const [threatSquares, setThreatSquares] = useState<string[]>([]);
+  const [showSettings, setShowSettings] = useState(false);
+  const [showReview, setShowReview] = useState<null | GameReview>(null);
   
   // Time controls
   const [timeControl, setTimeControl] = useState<{ minutes: number; increment: number }>({ minutes: 10, increment: 0 });
@@ -257,8 +261,54 @@ export const ModernChessScreen: React.FC = () => {
         // Add increment to AI after move completes (handled inside handleMove)
         handleMove(from, to);
       }
+      // Check for game end after AI move
+      if (chess.isGameOver()) {
+        await finalizeGameReview();
+      }
     } catch (error) {
       console.error('AI move error:', error);
+    }
+  };
+
+  const finalizeGameReview = async () => {
+    try {
+      const review: GameReview = {
+        id: `${Date.now()}`,
+        createdAt: Date.now(),
+        result: chess.isDraw() ? 'draw' : (chess.turn() === 'w' ? 'loss' : 'win'),
+        moves: [],
+      };
+      const replay = new Chess();
+      const historySans = [...gameState.history];
+      let ply = 1;
+      for (const san of historySans) {
+        const fenBefore = replay.fen();
+        const evalBefore = await engine.evaluate(fenBefore);
+        replay.move(san);
+        const fenAfter = replay.fen();
+        const evalAfter = await engine.evaluate(fenAfter);
+        const delta = evalAfter - evalBefore;
+        const item: MoveReviewItem = {
+          index: ply,
+          moveSan: san,
+          fenBefore,
+          fenAfter,
+          evalBefore,
+          evalAfter,
+          delta,
+          isBlunder: delta < -0.7,
+        };
+        review.moves.push(item);
+        ply += 1;
+      }
+      await historyService.saveReview(review);
+      setShowReview(review);
+      // Bias puzzles using latest reviews
+      const reviews = await historyService.getReviews();
+      const { puzzleService } = await import('../services/puzzleService');
+      puzzleService.setBiasFromReviews(reviews);
+    } catch (e) {
+      console.error('Failed to compute review', e);
     }
   };
   
@@ -420,6 +470,9 @@ export const ModernChessScreen: React.FC = () => {
       </TouchableOpacity>
       <View style={styles.clockSpacer} />
       <Text style={styles.clockText}>◻ {formatClock(whiteTimeMs)}  |  ◼ {formatClock(blackTimeMs)}</Text>
+      <TouchableOpacity style={[styles.tcButton, { marginLeft: 8 }]} onPress={() => setShowSettings(true)}>
+        <Text style={styles.tcText}>AI Quality</Text>
+      </TouchableOpacity>
     </View>
   );
   
@@ -523,6 +576,29 @@ export const ModernChessScreen: React.FC = () => {
         isOpen={showAIChat}
         onClose={() => setShowAIChat(false)}
       />
+
+      {/* Review modal */}
+      {showReview && (
+        <Modal animationType="slide" transparent={false} visible={true} onRequestClose={() => setShowReview(null)}>
+          <ReviewScreen review={showReview} onDrill={(fen) => { chess.load(fen); setShowReview(null); }} onClose={() => setShowReview(null)} />
+        </Modal>
+      )}
+
+      {/* Settings modal for AI Quality */}
+      {showSettings && (
+        <Modal animationType="fade" transparent onRequestClose={() => setShowSettings(false)}>
+          <View style={styles.explainOverlay}>
+            <View style={styles.explainCard}>
+              <Text style={styles.explainTitle}>AI Quality</Text>
+              {(['fast','balanced','deep','auto'] as AIMode[]).map((m) => (
+                <TouchableOpacity key={m} style={styles.tcButton} onPress={async () => { await aiConfigService.setMode(m); setShowSettings(false); }}>
+                  <Text style={styles.clockText}>{m.toUpperCase()}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        </Modal>
+      )}
 
       <Modal
         animationType="fade"
