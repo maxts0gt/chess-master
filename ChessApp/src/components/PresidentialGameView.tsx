@@ -21,6 +21,8 @@ import { ChessBoard } from './ChessBoard';
 import { presidentialGame } from '../services/presidentialGameService';
 import { webRTCService } from '../services/webRTCService';
 import QRCode from 'react-native-qrcode-svg';
+import QRCodeScanner from 'react-native-qrcode-scanner';
+import { check, request, PERMISSIONS, RESULTS } from 'react-native-permissions';
 
 interface PresidentialGameViewProps {
   isHost: boolean;
@@ -50,6 +52,7 @@ export const PresidentialGameView: React.FC<PresidentialGameViewProps> = ({
   const [localSignal, setLocalSignal] = useState('');
   const [remoteSignal, setRemoteSignal] = useState('');
   const [signalStep, setSignalStep] = useState<'offer' | 'answer' | 'complete'>(() => (isHost ? 'offer' : 'answer'));
+  const [scannerOpen, setScannerOpen] = useState(false);
 
   useEffect(() => {
     initializeGame();
@@ -143,6 +146,14 @@ export const PresidentialGameView: React.FC<PresidentialGameViewProps> = ({
     } catch (e) {
       Alert.alert('Invalid Signal', 'Please paste a valid JSON package.');
     }
+  };
+
+  const openScanner = async () => {
+    const permission = await check(PERMISSIONS.ANDROID.CAMERA);
+    if (permission !== RESULTS.GRANTED) {
+      await request(PERMISSIONS.ANDROID.CAMERA);
+    }
+    setScannerOpen(true);
   };
 
   const showGameEndAlert = (result: 'win' | 'lose' | 'draw') => {
@@ -239,10 +250,33 @@ export const PresidentialGameView: React.FC<PresidentialGameViewProps> = ({
                   <Text style={styles.modalButtonText}>Close</Text>
                 </TouchableOpacity>
               </View>
-              {/* Future: Add QR Scanner button */}
-              {/* <TouchableOpacity style={[styles.modalButton, { marginTop: 8 }]} onPress={() => setScannerOpen(true)}>
+              <TouchableOpacity style={[styles.modalButton, { marginTop: 8 }]} onPress={openScanner}>
                 <Text style={styles.modalButtonText}>Scan Remote QR</Text>
-              </TouchableOpacity> */}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+
+        {/* QR Scanner Modal */}
+        <Modal visible={scannerOpen} transparent animationType="fade" onRequestClose={() => setScannerOpen(false)}>
+          <View style={styles.signalModalOverlay}>
+            <View style={[styles.signalModalContent, { padding: 0 }] }>
+              <QRCodeScanner
+                onRead={(e: any) => {
+                  try {
+                    setRemoteSignal(e.data);
+                    setScannerOpen(false);
+                  } catch {
+                    Alert.alert('Scan Failed', 'Could not parse QR content');
+                  }
+                }}
+                topContent={<Text style={[styles.modalTitle, { marginTop: 8 }]}>Scan Remote {isHost ? 'Answer' : 'Offer'}</Text>}
+                bottomContent={
+                  <TouchableOpacity style={[styles.modalButton, { margin: 12 }]} onPress={() => setScannerOpen(false)}>
+                    <Text style={styles.modalButtonText}>Cancel</Text>
+                  </TouchableOpacity>
+                }
+              />
             </View>
           </View>
         </Modal>
