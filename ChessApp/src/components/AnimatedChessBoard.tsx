@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 import { Chess } from 'chess.js';
 import { theme } from '../styles/theme';
+import Svg, { Line, Circle, Marker, Path, Defs } from 'react-native-svg';
 
 const { width: screenWidth } = Dimensions.get('window');
 const BOARD_SIZE = Math.min(screenWidth - 32, 400);
@@ -29,6 +30,7 @@ interface AnimatedChessBoardProps {
   selectedSquare?: string | null;
   legalMoves?: string[];
   isPlayerTurn: boolean;
+  bestLineUci?: string[]; // e.g., ['e2e4','e7e5','g1f3']
 }
 
 interface PiecePosition {
@@ -51,6 +53,7 @@ export const AnimatedChessBoard: React.FC<AnimatedChessBoardProps> = ({
   selectedSquare,
   legalMoves = [],
   isPlayerTurn,
+  bestLineUci = [],
 }) => {
   const [pieces, setPieces] = useState<PiecePosition[]>([]);
   const [draggingPiece, setDraggingPiece] = useState<string | null>(null);
@@ -276,6 +279,45 @@ export const AnimatedChessBoard: React.FC<AnimatedChessBoardProps> = ({
     );
   };
 
+  const squareCenter = (square: string) => {
+    const file = square.charCodeAt(0) - 97;
+    const rank = 8 - parseInt(square[1]);
+    const x = (flipped ? (7 - file) : file) * SQUARE_SIZE + SQUARE_SIZE / 2;
+    const y = (flipped ? (7 - rank) : rank) * SQUARE_SIZE + SQUARE_SIZE / 2;
+    return { x, y };
+  };
+
+  const renderArrows = () => {
+    if (!bestLineUci || bestLineUci.length === 0) return null;
+    const arrows = [] as JSX.Element[];
+    for (let i = 0; i < bestLineUci.length; i++) {
+      const uci = bestLineUci[i];
+      const from = uci.substring(0, 2);
+      const to = uci.substring(2, 4);
+      const { x: x1, y: y1 } = squareCenter(from);
+      const { x: x2, y: y2 } = squareCenter(to);
+      const color = i === 0 ? '#4CAF50' : i === 1 ? '#FFC107' : '#03A9F4';
+      arrows.push(
+        <Path
+          key={`arrow-${uci}-${i}`}
+          d={`M ${x1} ${y1} L ${x2} ${y2}`}
+          stroke={color}
+          strokeWidth={6 - Math.min(4, i)}
+          strokeLinecap="round"
+        />
+      );
+      // Destination dot
+      arrows.push(
+        <Circle key={`dot-${uci}-${i}`} cx={x2} cy={y2} r={8 - Math.min(6, i * 2)} fill={color} />
+      );
+    }
+    return (
+      <Svg style={StyleSheet.absoluteFill} width={BOARD_SIZE} height={BOARD_SIZE}>
+        {arrows}
+      </Svg>
+    );
+  };
+
   return (
     <Animated.View
       style={[
@@ -287,14 +329,20 @@ export const AnimatedChessBoard: React.FC<AnimatedChessBoardProps> = ({
       ]}
     >
       <View style={styles.board}>
-        {Array.from({ length: 8 }).map((_, rank) =>
-          Array.from({ length: 8 }).map((_, file) =>
-            renderSquare(file, rank)
-          )
-        )}
-      </View>
-      <View style={styles.piecesContainer}>
+        {/* Board squares */}
+        <View style={styles.grid}>
+          {Array.from({ length: 8 }).map((_, rank) => (
+            <View key={rank} style={styles.row}>
+              {Array.from({ length: 8 }).map((_, file) => renderSquare(file, rank))}
+            </View>
+          ))}
+        </View>
+
+        {/* Pieces */}
         {pieces.map(renderPiece)}
+
+        {/* Best line arrows */}
+        {renderArrows()}
       </View>
     </Animated.View>
   );
@@ -310,10 +358,13 @@ const styles = StyleSheet.create({
   board: {
     width: BOARD_SIZE,
     height: BOARD_SIZE,
+    alignSelf: 'center',
+  },
+  grid: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  row: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    borderRadius: theme.borderRadius.md,
-    overflow: 'hidden',
   },
   square: {
     width: SQUARE_SIZE,

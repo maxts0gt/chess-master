@@ -444,6 +444,7 @@ export const ModernChessScreen: React.FC = () => {
           legalMoves={legalMoves}
           lastMove={lastMove}
           isPlayerTurn={gameState.turn === playerColor}
+          bestLineUci={gameState.bestMove ? [gameState.bestMove] : []}
         />
         
         {gameState.thinking && (

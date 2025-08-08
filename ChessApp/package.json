@@ -23,7 +23,10 @@
     "react-native-linear-gradient": "^2.8.3",
     "react-native-tts": "^4.1.0",
     "react-native-webrtc": "^118.0.1",
-    "stockfish.wasm": "^0.10.0"
+    "stockfish.wasm": "^0.10.0",
+    "react-native-svg": "^14.1.0",
+    "react-native-qrcode-svg": "^6.3.0",
+    "react-native-sha256": "^1.4.11"
   },
   "devDependencies": {
     "@babel/core": "^7.20.0",

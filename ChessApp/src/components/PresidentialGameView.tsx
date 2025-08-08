@@ -20,6 +20,7 @@ import {
 import { ChessBoard } from './ChessBoard';
 import { presidentialGame } from '../services/presidentialGameService';
 import { webRTCService } from '../services/webRTCService';
+import QRCode from 'react-native-qrcode-svg';
 
 interface PresidentialGameViewProps {
   isHost: boolean;
@@ -213,6 +214,13 @@ export const PresidentialGameView: React.FC<PresidentialGameViewProps> = ({
               <ScrollView style={styles.signalBox}>
                 <Text style={styles.signalText}>{localSignal || 'Generating...'}</Text>
               </ScrollView>
+
+              <Text style={styles.signalLabel}>Your {isHost ? 'Offer' : 'Answer'} QR</Text>
+              <View style={{ alignItems: 'center', marginBottom: 12 }}>
+                {localSignal ? (
+                  <QRCode value={localSignal} size={180} />
+                ) : null}
+              </View>
 
               <Text style={styles.signalLabel}>Paste Remote {isHost ? 'Answer' : 'Offer'} JSON</Text>
               <TextInput
